@@ -25,7 +25,7 @@ impl<T> From<OneOrMany<T>> for Vec<T> {
 }
 
 fn get_one_or_many_string(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> crate::Result<Vec<String>> {
-	let v = map.get(key).ok_or(crate::Error::ParseError(format!("key {} missing", key)))?;
+	let v = map.get(key).ok_or_else(|| crate::Error::ParseError(format!("key {} missing", key)))?;
 	match v {
 		serde_json::Value::Array(_) => Ok(serde_json::from_value(v.to_owned())?),
 		serde_json::Value::String(v) => {
@@ -79,15 +79,15 @@ mod install {
 							source: {
 								if let Some(f) = obj.get("file") {
 									SourceDirective::File(
-										f.as_str().ok_or(ParseError("file source directive must be a string".to_string()))?.to_string()
+										f.as_str().ok_or_else(|| ParseError("file source directive must be a string".to_string()))?.to_string()
 									)
 								} else if let Some(f) = obj.get("find") {
 									SourceDirective::Find(
-										f.as_str().ok_or(ParseError("find source directive must be a string".to_string()))?.to_string()
+										f.as_str().ok_or_else(|| ParseError("find source directive must be a string".to_string()))?.to_string()
 									)
 								} else if let Some(f) = obj.get("find_regexp") {
 									SourceDirective::FindRegExp(
-										f.as_str().ok_or(ParseError("find_regexp source directive must be a string".to_string()))?.to_string()
+										f.as_str().ok_or_else(|| ParseError("find_regexp source directive must be a string".to_string()))?.to_string()
 									)
 								} else {
 									return Err(ParseError("install has no valid source directive".to_string()));
@@ -96,7 +96,7 @@ mod install {
 
 							install_to: {
 								if let Some(f) = obj.get("install_to") {
-									f.as_str().ok_or(ParseError("destination directive must be a string".to_string()))?.to_string()
+									f.as_str().ok_or_else(|| ParseError("destination directive must be a string".to_string()))?.to_string()
 								} else {
 									return Err(ParseError("install has no destination directive".to_string()));
 								}
@@ -106,22 +106,22 @@ mod install {
 								let mut add = Vec::<OptionalDirective>::new();
 								/* The spec doesn't mention specifically but I'm pretty sure each directive can only turn up once */
 								if let Some(f) = obj.get("as") {
-									add.push(OptionalDirective::As(f.as_str().ok_or(ParseError("as directive must be a string".to_string()))?.to_string()));
+									add.push(OptionalDirective::As(f.as_str().ok_or_else(|| ParseError("as directive must be a string".to_string()))?.to_string()));
 								}
-								if let Some(_) = obj.get("filter") {
+								if obj.get("filter").is_some() {
 									add.push(OptionalDirective::Filter(super::get_one_or_many_string(obj, "filter")?));
 								}
-								if let Some(_) = obj.get("filter_regexp") {
+								if obj.get("filter_regexp").is_some() {
 									add.push(OptionalDirective::FilterRegExp(super::get_one_or_many_string(obj, "filter_regexp")?));
 								}
-								if let Some(_) = obj.get("include_only") {
+								if obj.get("include_only").is_some() {
 									add.push(OptionalDirective::IncludeOnly(super::get_one_or_many_string(obj, "include_only")?));
 								}
-								if let Some(_) = obj.get("include_only_regexp") {
+								if obj.get("include_only_regexp").is_some() {
 									add.push(OptionalDirective::IncludeOnlyRegExp(super::get_one_or_many_string(obj, "include_only_regexp")?));
 								}
 								if let Some(f) = obj.get("find_matches_files") {
-									add.push(OptionalDirective::FindMatchesFiles(f.as_bool().ok_or(ParseError("find_matches_files directive must be a bool".to_string()))?));
+									add.push(OptionalDirective::FindMatchesFiles(f.as_bool().ok_or_else(|| ParseError("find_matches_files directive must be a bool".to_string()))?));
 								}
 
 								add
@@ -181,42 +181,12 @@ mod relationship {
 			Ok(RelationshipEntry {
 				name: {
 					v.get("name")
-						.ok_or(ParseError("JSON has no name field".to_string()))?
-						.as_str().ok_or(ParseError("name must be a string".to_string()))?.to_string()
+						.ok_or_else(|| ParseError("JSON has no name field".to_string()))?
+						.as_str().ok_or_else(|| ParseError("name must be a string".to_string()))?.to_string()
 				},
-				version: {
-					if let Some(val) = v.get("version") {
-						if let Some(s) = val.as_str() {
-							Some(s.to_string())
-						} else {
-							None
-						}
-					} else {
-						None
-					}
-				},
-				max_version: {
-					if let Some(val) = v.get("max_version") {
-						if let Some(s) = val.as_str() {
-							Some(s.to_string())
-						} else {
-							None
-						}
-					} else {
-						None
-					}
-				},
-				min_version: {
-					if let Some(val) = v.get("min_version") {
-						if let Some(s) = val.as_str() {
-							Some(s.to_string())
-						} else {
-							None
-						}
-					} else {
-						None
-					}
-				},
+				version: v.get("version").and_then(|v| v.as_str().map(|s| s.to_string())),
+				max_version: v.get("max_version").and_then(|v| v.as_str().map(|s| s.to_string())),
+				min_version: v.get("min_version").and_then(|v| v.as_str().map(|s| s.to_string())),
 			})
 		}
 	}
@@ -255,7 +225,7 @@ mod relationship {
 								return Err(ParseError("any_of constraint must be an array".to_string()));
 							}
 						/* single */
-						} else if let Some(name) = obj.get("name") {
+						} else if obj.get("name").is_some() {
 							Relationship::One(RelationshipEntry::from_json(elem)?)
 						} else {
 							return Err(ParseError("relationship object must be a relationship or any_of constraint".to_string()));
@@ -344,7 +314,7 @@ impl Ckan {
 			)
 		}
 
-		let obj = v.as_object().ok_or(ParseError("JSON is not an object".to_string()))?;
+		let obj = v.as_object().ok_or_else(|| ParseError("JSON is not an object".to_string()))?;
 		Ok( Ckan {
 			spec_version: {
 				match obj.get("spec_version").unwrap_or(&Value::Null) {
@@ -406,11 +376,12 @@ impl Ckan {
 			ksp_version: get_val(obj, "ksp_version").ok(),
 			ksp_version_min: get_val(obj, "ksp_version_min").ok(),
 			ksp_version_max: get_val(obj, "ksp_version_max").ok(),
-			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").unwrap_or(&Value::Null).to_owned()).unwrap(),
+			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").cloned().unwrap_or(Value::Bool(true))).map_err(|_| ParseError("ksp_version_strict must be a boolean".to_string()))?,
 			tags: get_one_or_many_string(obj, "tags").ok(), /* This does work */
 			localizations: get_one_or_many_string(obj, "localizations").ok(),
 			download_size: get_val(obj, "download_size").ok(),
 			download_hash_sha1: {
+				/* Looks bad but the functional equivalent looks worse */
 				let mut res = None;
 				if let Some(h) = obj.get("download_hash") {
 					if let Some(o) = h.as_object() {
@@ -439,52 +410,14 @@ impl Ckan {
 			download_content_type: get_val(obj, "download_content_type").ok(),
 			install_size: get_val(obj, "install_size").ok(),
 			release_date: get_val(obj, "release_date").ok(),
-			depends: {
-				if let Some(x) = obj.get("depends") {
-					relationship::from_json(x)?
-				} else {
-					Vec::<relationship::Relationship>::default()
-				}
-			},
-			recommends: {
-				if let Some(x) = obj.get("recommends") {
-					relationship::from_json(x)?
-				} else {
-					Vec::<relationship::Relationship>::default()
-				}
-			},
-			suggests: {
-				if let Some(x) = obj.get("suggests") {
-					relationship::from_json(x)?
-				} else {
-					Vec::<relationship::Relationship>::default()
-				}
-			},
-			supports: {
-				if let Some(x) = obj.get("supports") {
-					relationship::from_json(x)?
-				} else {
-					Vec::<relationship::Relationship>::default()
-				}
-			},
-			conflicts: {
-				if let Some(x) = obj.get("conflicts") {
-					relationship::from_json(x)?
-				} else {
-					Vec::<relationship::Relationship>::default()
-				}
-			},
-			replaced_by: {
-				if let Some(x) = obj.get("replaced-by") {
-					Some(relationship::RelationshipEntry::from_json(x)?)
-				} else {
-					None
-				}
-			},
+			depends: obj.get("depends").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
+			recommends: obj.get("recommends").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
+			suggests: obj.get("suggests").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
+			supports: obj.get("supports").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
+			conflicts: obj.get("conflicts").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
+			replaced_by: obj.get("replaced-by").map(|v| relationship::RelationshipEntry::from_json(v).expect("couldn't read relationship from JSON")),
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			resources: get_val(obj, "resources").unwrap_or_default(),
-
-			..Default::default()
 		})
 	}
 }

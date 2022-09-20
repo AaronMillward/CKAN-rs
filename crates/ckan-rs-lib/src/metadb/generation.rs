@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::Error::ParseError;
+
 /// Gets the lastest MetaDB .tar.gz archive as bytes
 pub fn get_latest_archive() -> crate::Result<Vec<u8>> {
 	use std::io::Read;
@@ -35,7 +37,7 @@ impl MetaDB {
 			let stmt_insert_mod_author       = &mut trans.prepare(include_str!("insert-mod-author.sql"))?;
 			let stmt_insert_mod_tag          = &mut trans.prepare(include_str!("insert-mod-tag.sql"))?;
 			let stmt_insert_mod_localization = &mut trans.prepare(include_str!("insert-mod-localization.sql"))?;
-			let stmt_insert_mod_relationship = &mut trans.prepare(include_str!("insert-mod-relationship.sql"))?;
+			// let stmt_insert_mod_relationship = &mut trans.prepare(include_str!("insert-mod-relationship.sql"))?;
 			let stmt_insert_identifier       = &mut trans.prepare(include_str!("insert-identifier.sql"))?;
 
 			/* Create a vector containing the read CKAN files */
@@ -51,7 +53,8 @@ impl MetaDB {
 				};
 
 				for (i, e) in archive.entries()?.enumerate() {
-					let mut e = e.unwrap();
+					let mut e = e.map_err(|_| ParseError("tar archive entries unreadable".to_string()))?;
+
 					if e.size() == 0 {
 						continue;
 					}
@@ -100,7 +103,7 @@ impl MetaDB {
 				if stmt_insert_identifier.execute(params![c.identifier])? > 0 {
 					identifiers.insert(c.identifier.clone(), trans.last_insert_rowid());
 				} else {
-					panic!()
+					return Err(ParseError("couldn't insert identifier".to_string()))
 				}
 			}
 
@@ -111,7 +114,7 @@ impl MetaDB {
 					if stmt_insert_author.execute(params![author])? > 0 {
 						authors.insert(author.clone(), trans.last_insert_rowid());
 					} else {
-						panic!("couldn't insert author {}", author)
+						return Err(ParseError("couldn't insert author".to_string()))
 					}
 				}
 			}
@@ -168,8 +171,6 @@ impl MetaDB {
 							stmt_insert_mod_tag.execute(params![mod_id, tag])?;
 						}
 					}
-
-					/* TODO: Relationships */
 				}
 			}
 		}
@@ -191,10 +192,39 @@ mod tests {
 
 	#[test]
 	fn metadb_generate() {
-		let data = include_bytes!("../../test-data/CKAN-meta-master.tar.gz");
-		let mut gz = flate2::bufread::GzDecoder::new(data.as_slice());
 		let mut v = Vec::<u8>::new();
-		gz.read_to_end(&mut v).unwrap();
-		MetaDB::generate_from_archive(std::path::PathBuf::from("/tmp/metadb.db"), &mut tar::Archive::new(v.as_slice()), true).unwrap();
+		{
+			let data = include_bytes!("../../test-data/meta-small.tar.gz");
+			let mut gz = flate2::bufread::GzDecoder::new(data.as_slice());
+			gz.read_to_end(&mut v).unwrap();
+		}
+		MetaDB::generate_from_archive(
+			std::path::PathBuf::from("/tmp/metadb.db"),
+			&mut tar::Archive::new(v.as_slice()),
+			true
+		).expect("failed to generate db");
+	}
+
+	#[test]
+	fn sql_statements_compile_in_database() {
+		let conn = rusqlite::Connection::open_in_memory().expect("failed to open db");
+		conn.execute_batch(include_str!("metadb-schema.sql")).expect("failed to create db tables"); /* Create DB */
+		conn.prepare(include_str!("insert-mod.sql")).unwrap();
+		conn.prepare(include_str!("insert-author.sql")).unwrap();
+		conn.prepare(include_str!("insert-mod-license.sql")).unwrap();
+		conn.prepare(include_str!("insert-mod-author.sql")).unwrap();
+		conn.prepare(include_str!("insert-mod-tag.sql")).unwrap();
+		conn.prepare(include_str!("insert-mod-localization.sql")).unwrap();
+		conn.prepare(include_str!("insert-mod-relationship.sql")).unwrap();
+		conn.prepare(include_str!("insert-identifier.sql")).unwrap();
+	}
+	
+	#[test]
+	fn ckan_json_schema_compiles() {
+		jsonschema::JSONSchema::compile(
+			&serde_json::from_str(
+				include_str!("CKAN-json.schema")
+			).expect("schema isn't valid json")
+		).expect("schema isn't invalid");
 	}
 }
