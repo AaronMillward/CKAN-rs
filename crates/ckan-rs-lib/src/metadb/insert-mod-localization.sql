@@ -1,0 +1,1 @@
+INSERT INTO "mod_localization" (mod_id, language) VALUES ( ?1,?2 )

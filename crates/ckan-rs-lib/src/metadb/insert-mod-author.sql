@@ -1,0 +1,1 @@
+INSERT INTO "mod_author" (mod_id, author_id) VALUES ( ?1,?2 )

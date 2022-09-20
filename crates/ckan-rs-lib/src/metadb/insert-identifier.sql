@@ -1,0 +1,1 @@
+INSERT INTO "identifier" (name) VALUES (?1)
