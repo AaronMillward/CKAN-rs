@@ -1,5 +1,5 @@
 use super::*;
-
+use ckan::*;
 use crate::Error::ParseError;
 
 /// Gets the lastest MetaDB .tar.gz archive as bytes
@@ -19,8 +19,6 @@ impl MetaDB {
 	pub fn generate_from_archive<R>(path: std::path::PathBuf, archive: &mut tar::Archive<R>, do_validation: bool) -> crate::Result<Self>
 	where R: std::io::Read
 	{
-		use ckan::*;
-		use rusqlite::params;
 		use std::io::Read;
 		use std::collections::HashMap;
 
@@ -126,7 +124,7 @@ impl MetaDB {
 					c.name,
 					c.r#abstract,
 					c.download,
-					c.version,
+					bincode::serialize(&c.version).unwrap(),
 					c.description,
 					c.release_status,
 					c.ksp_version,
@@ -203,20 +201,6 @@ mod tests {
 			&mut tar::Archive::new(v.as_slice()),
 			true
 		).expect("failed to generate db");
-	}
-
-	#[test]
-	fn sql_statements_compile_in_database() {
-		let conn = rusqlite::Connection::open_in_memory().expect("failed to open db");
-		conn.execute_batch(include_str!("metadb-schema.sql")).expect("failed to create db tables"); /* Create DB */
-		conn.prepare(include_str!("insert-mod.sql")).unwrap();
-		conn.prepare(include_str!("insert-author.sql")).unwrap();
-		conn.prepare(include_str!("insert-mod-license.sql")).unwrap();
-		conn.prepare(include_str!("insert-mod-author.sql")).unwrap();
-		conn.prepare(include_str!("insert-mod-tag.sql")).unwrap();
-		conn.prepare(include_str!("insert-mod-localization.sql")).unwrap();
-		conn.prepare(include_str!("insert-mod-relationship.sql")).unwrap();
-		conn.prepare(include_str!("insert-identifier.sql")).unwrap();
 	}
 	
 	#[test]

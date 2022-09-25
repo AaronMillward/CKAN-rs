@@ -9,7 +9,7 @@ CREATE TABLE "mod" (
 	"name"                  TEXT    NOT NULL,
 	"abstract"              TEXT    NOT NULL,
 	"download_url"          TEXT            ,
-	"version"               TEXT    NOT NULL,
+	"version"               BLOB    NOT NULL,
 	"description"           TEXT            ,
 	"release_status"        INTEGER         ,
 	"ksp_version"           TEXT            ,
