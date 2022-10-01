@@ -32,9 +32,7 @@ CREATE TABLE "mod" (
 	"conflicts"             BLOB            ,
 	"replaced_by"           BLOB            ,
 
-	"identifier_id"         INTEGER         ,
 	PRIMARY KEY("id" AUTOINCREMENT),
-	FOREIGN KEY("identifier_id") REFERENCES "identifier"("id") ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE TABLE "author" (
@@ -44,54 +42,40 @@ CREATE TABLE "author" (
 );
 
 CREATE TABLE "mod_author" (
-	"id"        INTEGER         ,
 	"mod_id"    INTEGER NOT NULL,
 	"author_id" INTEGER NOT NULL,
-	PRIMARY KEY("id" AUTOINCREMENT),
 	FOREIGN KEY("author_id") REFERENCES "author"("id") ON UPDATE CASCADE ON DELETE RESTRICT,
 	FOREIGN KEY("mod_id")    REFERENCES "mod"("id")    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE TABLE "mod_license" (
-	"id"     INTEGER         ,
 	"mod_id" INTEGER NOT NULL,
 	"type"   TEXT    NOT NULL,
-	PRIMARY KEY("id" AUTOINCREMENT),
 	FOREIGN KEY("mod_id") REFERENCES "mod"("id") ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE TABLE "mod_tag" (
-	"id"     INTEGER         ,
 	"mod_id" INTEGER NOT NULL,
 	"name"   TEXT    NOT NULL,
-	PRIMARY KEY("id" AUTOINCREMENT),
 	FOREIGN KEY("mod_id") REFERENCES "mod"("id") ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE TABLE "mod_localization" (
-	"id"       INTEGER         ,
 	"mod_id"   INTEGER NOT NULL,
 	"language" TEXT    NOT NULL,
-	PRIMARY KEY("id" AUTOINCREMENT),
 	FOREIGN KEY("mod_id") REFERENCES "mod"("id") ON UPDATE CASCADE ON DELETE CASCADE
-);
-
-CREATE TABLE "mod_relationship" (
-	"id"                    INTEGER         ,
-	"mod_id"                INTEGER NOT NULL,
-	"type"                  INTEGER NOT NULL,
-	"value_mod_identifier"  INTEGER NOT NULL,
-	"value_mod_version"     TEXT            ,
-	"value_mod_version_min" TEXT            ,
-	"value_mod_version_max" TEXT            ,
-	PRIMARY KEY("id"),
-	FOREIGN KEY("mod_id")               REFERENCES "mod"("id")          ON UPDATE CASCADE ON DELETE RESTRICT,
-	FOREIGN KEY("value_mod_identifier") REFERENCES "identifier"("id") ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 CREATE TABLE "identifier" (
 	"id"             INTEGER         ,
 	"name"           TEXT    NOT NULL,
 	"download_count" INTEGER         ,
+	"virtual"        BOOLEAN         , --Indicates if this identifier represents a single mod or multiple
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
+
+/* Describes what identifers a given mod provides */
+CREATE TABLE "mod_provides" (
+	"mod_id" INTEGER,
+	"identifier_id" INTEGER,
+)

@@ -5,7 +5,7 @@
 //! 
 //! 
 
-mod ckan;
+pub mod ckan;
 
 mod generation;
 
@@ -13,6 +13,7 @@ pub use generation::get_latest_archive;
 
 use rusqlite::params;
 
+#[derive(Debug)]
 pub struct MetaDB {
 	connection: rusqlite::Connection,
 }
@@ -22,6 +23,10 @@ impl MetaDB {
 		Ok(MetaDB {
 			connection: rusqlite::Connection::open(path)?,
 		})
+	}
+
+	pub fn get_connection(&self) -> &rusqlite::Connection {
+		&self.connection
 	}
 }
 

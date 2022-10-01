@@ -1,1 +1,1 @@
-INSERT INTO "identifier" (name) VALUES (?1)
+INSERT INTO "identifier" (name, virtual) VALUES (?1,?2)

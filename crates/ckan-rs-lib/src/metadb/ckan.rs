@@ -207,5 +207,6 @@ pub struct Ckan {
 	pub conflicts: Vec<relationship::Relationship>,
 	pub replaced_by: Option<relationship::RelationshipEntry>,
 	pub kind: Kind,
+	pub provides: Vec<String>,
 	pub resources: HashMap<String, String>,
 }

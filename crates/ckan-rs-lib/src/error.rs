@@ -8,6 +8,8 @@ pub enum Error {
 	SQLError(rusqlite::Error),
 	ParseError(String),
 	ValidationError(String),
+	InvalidSelection,
+	IncompatibleGameVersion,
 }
 
 impl std::fmt::Display for Error {
@@ -17,7 +19,14 @@ impl std::fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
-impl From<reqwest::Error>    for Error { fn from(e: reqwest::Error)    -> Self { Error::ReqwestError(e) } }
-impl From<std::io::Error>    for Error { fn from(e: std::io::Error)    -> Self { Error::IOError(e) } }
-impl From<serde_json::Error> for Error { fn from(e: serde_json::Error) -> Self { Error::SerdeJSONError(e) } }
-impl From<rusqlite::Error>   for Error { fn from(e: rusqlite::Error)   -> Self { Error::SQLError(e) } }
+
+macro_rules! error_wrapper(
+	($t:ty, $e:expr) => (
+		impl From<$t> for Error { fn from(e: $t) -> Self { $e(e) } }
+	)
+);
+
+error_wrapper!(reqwest::Error    , Error::ReqwestError);
+error_wrapper!(std::io::Error    , Error::IOError);
+error_wrapper!(serde_json::Error , Error::SerdeJSONError);
+error_wrapper!(rusqlite::Error   , Error::SQLError);

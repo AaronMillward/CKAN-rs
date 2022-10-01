@@ -255,6 +255,15 @@ impl Ckan {
 			conflicts: obj.get("conflicts").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			replaced_by: obj.get("replaced-by").map(|v| relationship::RelationshipEntry::from_json(v).expect("couldn't read relationship from JSON")),
 			kind: get_val(obj, "kind").unwrap_or_default(),
+			provides: {
+				obj.get("provides").and_then(|value|
+					value.as_array().and_then(|array|
+						Some(
+							array.iter().map(|e| e.as_str().expect("`provides` elements must be strings").to_string()).collect::<Vec<_>>()
+						)
+					)
+				).unwrap_or_default()
+			},
 			resources: get_val(obj, "resources").unwrap_or_default(),
 		})
 	}

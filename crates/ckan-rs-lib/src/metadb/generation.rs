@@ -37,6 +37,7 @@ impl MetaDB {
 			let stmt_insert_mod_localization = &mut trans.prepare(include_str!("insert-mod-localization.sql"))?;
 			// let stmt_insert_mod_relationship = &mut trans.prepare(include_str!("insert-mod-relationship.sql"))?;
 			let stmt_insert_identifier       = &mut trans.prepare(include_str!("insert-identifier.sql"))?;
+			let stmt_insert_mod_provides     = &mut trans.prepare(include_str!("insert-mod-identifier.sql"))?;
 
 			/* Create a vector containing the read CKAN files */
 			let ckans: Vec<Ckan> = {
@@ -97,11 +98,19 @@ impl MetaDB {
 
 			/* Populate the identifer table */
 			for c in &ckans {
-				if identifiers.contains_key(&c.identifier) { continue; }
-				if stmt_insert_identifier.execute(params![c.identifier])? > 0 {
-					identifiers.insert(c.identifier.clone(), trans.last_insert_rowid());
-				} else {
-					return Err(ParseError("couldn't insert identifier".to_string()))
+				let mut to_add = Vec::<(bool, String)>::new();
+
+				to_add.push((false, c.identifier));
+				for id in c.provides {
+					to_add.push((true, id));
+				}
+				
+				for (virt, id) in to_add.iter().filter(|(_, id)| !identifiers.contains_key(id)) {
+					if stmt_insert_identifier.execute(params![id, virt])? > 0 {
+						identifiers.insert(id.clone(), trans.last_insert_rowid());
+					} else {
+						return Err(ParseError("couldn't insert identifier".to_string()))
+					}
 				}
 			}
 
@@ -124,7 +133,7 @@ impl MetaDB {
 					c.name,
 					c.r#abstract,
 					c.download,
-					bincode::serialize(&c.version).unwrap(),
+					c.version,
 					c.description,
 					c.release_status,
 					c.ksp_version,
@@ -144,11 +153,21 @@ impl MetaDB {
 					bincode::serialize(&c.supports).ok(),
 					bincode::serialize(&c.conflicts).ok(),
 					bincode::serialize(&c.replaced_by).ok(),
-					identifiers.get(&c.identifier),
 				])?;
 				
 				if changes == 1 {
 					let mod_id = trans.last_insert_rowid();
+
+					{
+						let mut ids = Vec::<String>::new();
+						ids.push(c.identifier);
+						for i in c.provides {
+							ids.push(i);
+						}
+						for i in ids {
+							stmt_insert_mod_provides.execute(params![identifiers.get(&i).unwrap()])?;
+						}
+					}
 
 					for author in c.author {
 						stmt_insert_mod_author.execute(params![mod_id, authors.get(&author).unwrap()])?; /* Same here */
