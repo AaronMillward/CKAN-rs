@@ -8,20 +8,19 @@ use crate::metadb::MetaDB;
 
 #[derive(Debug, Default)]
 pub struct InstallRequirement {
-	mod_identifier: String,
-	required_version: Option<ModVersion>
+	pub mod_identifier: String,
+	pub required_version: Option<ModVersion>
 }
 
 /// Describes a decision to be made by the user when mutiple providers are available for a given module
 #[derive(Debug)]
-pub struct RelationshipMutlipleProvidersDecision<'a> {
-	inner: RelationshipResolver<'a>,
+pub struct RelationshipMutlipleProvidersDecision {
 	virtual_identifier: String,
 	options: HashSet<String>,
 	selection: String,
 }
 
-impl<'a> RelationshipMutlipleProvidersDecision<'a> {
+impl RelationshipMutlipleProvidersDecision {
 	pub fn get_options(&self) -> &HashSet<String> {
 		&self.options
 	}
@@ -35,22 +34,19 @@ impl<'a> RelationshipMutlipleProvidersDecision<'a> {
 		}
 	}
 
-	pub fn confirm(mut self) -> RelationshipResolver<'a> {
-		self.inner.add_decision(self.virtual_identifier, self.selection);
-		self.inner
-	}
+	/* TODO: Some `finalize` function to stop users from passing incomplete decisions back to the resolver */
 }
 
 #[derive(Debug)]
-pub enum RelationshipProcess<'a> {
+pub enum RelationshipProcess {
 	/// There are more steps to be done.
-	Incomplete(RelationshipResolver<'a>),
+	Incomplete,
 	/// A module was virtual and requires a decision to progress.
-	MultipleProviders(RelationshipMutlipleProvidersDecision<'a>),
+	MultipleProviders(RelationshipMutlipleProvidersDecision),
 	/// There are more steps required but there are unresolved issues preventing further steps.
-	Halt(RelationshipResolver<'a>),
+	Halt,
 	/// The resolver is done
-	Complete(RelationshipResolver<'a>),
+	Complete,
 }
 
 /// Describes why a given module or identifier failed to resolve.
@@ -113,36 +109,24 @@ impl<'db> RelationshipResolver<'db> {
 		}
 	}
 
-	/// moves the resolver forward allowing caller to handle conflicts and decisions
-	pub fn step(mut self) -> RelationshipProcess<'db> {
-		/* 
-		- Select depends, conflicts, ksp_version for each mod identifier
-		- if requirement has a specific version limit select to that version
-		- if there are no matching versions we have an error
-		- recurse until no new deps are found
-		*/
-
-		/* We use a breadth first approach as I think users will prefer to make higher level decisions first */
-
-		/* Pop next in queue */
-		/* If it is a virtual identifier ask which option */
-		/* add deps of the module to the queue if they aren't in completed already */
-		/* repeat step 1 until no queue is empty */
-
-		let identifier = {
+	/// Moves the resolver forward allowing caller to handle decisions and errors.
+	/// 
+	/// Uses a breadth first approach so higher level decisions are made first.
+	pub fn step(&mut self) -> RelationshipProcess {
+		let processing_identifier = {
 			let opt = self.resolve_queue.get(0);
 			if opt.is_none() {
 				if self.failed.is_empty() {
-					return RelationshipProcess::Complete(self)
+					return RelationshipProcess::Complete
 				} else {
-					return RelationshipProcess::Halt(self)
+					return RelationshipProcess::Halt
 				}
 			}
 			opt.unwrap()
 		};
 
-		if self.completed.contains(identifier) {
-			return RelationshipProcess::Incomplete(self)
+		if self.completed.contains(processing_identifier) {
+			return RelationshipProcess::Incomplete
 		}
 
 		let modules_ksp_compatible = self.metadb.get_modules().iter().filter(|module| {
@@ -185,23 +169,23 @@ impl<'db> RelationshipResolver<'db> {
 		 *
 		 * Because of this the only way to detect case 2 is by checking if case 1 is true
 		 */
-		let mut compatible_modules = modules_ksp_compatible.iter().filter(|module| &module.identifier == identifier).collect::<Vec<_>>();
+		let mut compatible_modules = modules_ksp_compatible.iter().filter(|module| &module.identifier == processing_identifier).collect::<Vec<_>>();
 
 		/* Handle virtual modules */
 		{
 			let is_virtual = compatible_modules.is_empty();
 	
 			if is_virtual {
-				if !self.decisions.contains_key(identifier) {
+				if !self.decisions.contains_key(processing_identifier) {
 					let providers = self.metadb.get_modules().iter()
-						.filter(|module| module.provides.contains(identifier))
+						.filter(|module| module.provides.contains(processing_identifier))
 						.map(|module| module.identifier.clone())
 						.collect::<HashSet<_>>();
 
 					/* Handle no providers case. See comment above `compatible_modules` for more info */
 					if providers.is_empty() {
-						self.failed.push(FailedResolve::NoCompatibleKspVersion(identifier.clone()));
-						return RelationshipProcess::Incomplete(self);
+						self.failed.push(FailedResolve::NoCompatibleKspVersion(processing_identifier.clone()));
+						return RelationshipProcess::Incomplete
 					}
 
 					if providers.len() == 1 {
@@ -211,20 +195,19 @@ impl<'db> RelationshipResolver<'db> {
 						/* Check confirmed to see if decision has already been made */
 						if self.confirmed.iter().any(|c| providers.contains(&c.identifier)) {
 							self.resolve_queue.remove(0);
-							return RelationshipProcess::Incomplete(self)
+							return RelationshipProcess::Incomplete
 						} else {
 							return RelationshipProcess::MultipleProviders(
 								RelationshipMutlipleProvidersDecision {
-									virtual_identifier: identifier.clone(),
+									virtual_identifier: processing_identifier.clone(),
 									options: providers,
 									selection: "".to_string(),
-									inner: self,
 								}
 							)
 						}
 					}
 				} else {
-					let new_identifier = self.decisions.get(identifier).unwrap().clone();
+					let new_identifier = self.decisions.get(processing_identifier).unwrap().clone();
 					compatible_modules = modules_ksp_compatible.iter().filter(|module| module.identifier == new_identifier).collect::<Vec<_>>();
 				}
 			}
@@ -249,14 +232,18 @@ impl<'db> RelationshipResolver<'db> {
 			self.resolve_queue.remove(0);
 		} else {
 			/* There are no compatible modules  */
-			self.failed.push(FailedResolve::NoCompatibleCandidates(identifier.clone()));
-			return RelationshipProcess::Incomplete(self);
+			self.failed.push(FailedResolve::NoCompatibleCandidates(processing_identifier.clone()));
+			return RelationshipProcess::Incomplete
 		}
 
-		RelationshipProcess::Incomplete(self)
+		RelationshipProcess::Incomplete
 	}
 
-	fn add_decision(&mut self, virtual_identifier: String, identifier: String) {
-		self.decisions.insert(virtual_identifier, identifier);
+	pub fn add_decision(&mut self, decision: RelationshipMutlipleProvidersDecision) {
+		self.decisions.insert(decision.virtual_identifier, decision.selection);
+	}
+
+	pub fn get_failed_resolves(&self) -> &Vec<FailedResolve> {
+		&self.failed
 	}
 }

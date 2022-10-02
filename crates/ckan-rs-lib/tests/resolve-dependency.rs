@@ -8,12 +8,21 @@ fn resolve_dependency() {
 	let compatible_ksp_versions = HashSet::<KspVersion>::new();
 	let requirements = vec![InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() } ];
 
-	let resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
+	let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
 
 	loop {
-		/* TODO: Requires redesign of RelationshipResolver */
-		let mut process = resolver.step();
-
+		let process = resolver.step();
+		match process {
+			RelationshipProcess::Incomplete => {},
+			RelationshipProcess::MultipleProviders(mut decision) => {
+				decision.select(decision.get_options().iter().next().cloned().unwrap());
+				resolver.add_decision(decision);
+			},
+			RelationshipProcess::Halt => {
+				dbg!(resolver.get_failed_resolves());
+				panic!("Resolver Halted");
+			},
+			RelationshipProcess::Complete => { break; },
+		}
 	}
-
 }
