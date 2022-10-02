@@ -8,41 +8,26 @@
 pub mod ckan;
 
 mod generation;
-
 pub use generation::get_latest_archive;
 
-use rusqlite::params;
+use std::collections::HashSet;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MetaDB {
-	connection: rusqlite::Connection,
+	modules: HashSet<ckan::Ckan>,
 }
 
 impl MetaDB {
-	pub fn open(path: &std::path::Path) -> crate::Result<Self> {
-		Ok(MetaDB {
-			connection: rusqlite::Connection::open(path)?,
-		})
+	pub fn get_modules(&self) -> &HashSet<ckan::Ckan> {
+		&self.modules
 	}
 
-	pub fn get_connection(&self) -> &rusqlite::Connection {
-		&self.connection
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	#[test]
-	fn sql_statements_compile_in_database() {
-		let conn = rusqlite::Connection::open_in_memory().expect("failed to open db");
-		conn.execute_batch(include_str!("metadb/metadb-schema.sql")).expect("failed to create db tables"); /* Create DB */
-		conn.prepare(include_str!("metadb/insert-mod.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-author.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-mod-license.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-mod-author.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-mod-tag.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-mod-localization.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-mod-relationship.sql")).unwrap();
-		conn.prepare(include_str!("metadb/insert-identifier.sql")).unwrap();
+	pub fn get_from_identifier_and_version(&self, identifier: &str, version: &ckan::ModVersion) -> Option<&ckan::Ckan> {
+		self.modules.iter()
+			.filter(|module| module.identifier == identifier && &module.version == version)
+			.collect::<Vec<_>>()
+			.get(0)
+			.copied()
 	}
 }

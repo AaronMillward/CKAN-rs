@@ -1,5 +1,6 @@
 //! Functions and methods for reading CKAN types from JSON
 
+use serde::de::DeserializeOwned;
 use super::*;
 
 impl install::InstallDirective {
@@ -257,11 +258,10 @@ impl Ckan {
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			provides: {
 				obj.get("provides").and_then(|value|
-					value.as_array().and_then(|array|
-						Some(
-							array.iter().map(|e| e.as_str().expect("`provides` elements must be strings").to_string()).collect::<Vec<_>>()
-						)
-					)
+					value.as_array()
+					.map(|array| array.iter()
+					.map(|e| e.as_str().expect("`provides` elements must be strings").to_string())
+					.collect::<HashSet<_>>())
 				).unwrap_or_default()
 			},
 			resources: get_val(obj, "resources").unwrap_or_default(),

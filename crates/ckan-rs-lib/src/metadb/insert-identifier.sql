@@ -1,1 +1,0 @@
-INSERT INTO "identifier" (name, virtual) VALUES (?1,?2)

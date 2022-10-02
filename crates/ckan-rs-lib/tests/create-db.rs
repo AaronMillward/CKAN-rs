@@ -7,7 +7,6 @@ fn metadb_create() {
 	let mut v = Vec::<u8>::new();
 	gz.read_to_end(&mut v).unwrap();
 	ckan_rs::metadb::MetaDB::generate_from_archive(
-		std::path::PathBuf::from("/tmp/test_metadb_create.db"), 
 		&mut tar::Archive::new(v.as_slice()), 
 		true
 	).expect("failed to create db");

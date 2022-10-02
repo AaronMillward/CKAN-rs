@@ -1,1 +1,0 @@
-INSERT INTO "mod_tag" (mod_id, name) VALUES ( ?1,?2 )

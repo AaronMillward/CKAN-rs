@@ -1,1 +1,0 @@
-INSERT INTO "mod_license" (mod_id, type) VALUES ( ?1,?2 )

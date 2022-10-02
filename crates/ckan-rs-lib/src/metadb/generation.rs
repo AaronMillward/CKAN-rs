@@ -16,32 +16,14 @@ impl MetaDB {
 	/// - `path` - Where the database will be created.
 	/// - `archive_data` - A tarball containing the metadb json files, should *not* be compressed.
 	/// - `do_validation` - Usually enabled when the repo can't be trusted to validate their ckans. should be `false` for most cases as it is slow.
-	pub fn generate_from_archive<R>(path: std::path::PathBuf, archive: &mut tar::Archive<R>, do_validation: bool) -> crate::Result<Self>
+	pub fn generate_from_archive<R>(archive: &mut tar::Archive<R>, do_validation: bool) -> crate::Result<Self>
 	where R: std::io::Read
 	{
 		use std::io::Read;
-		use std::collections::HashMap;
 
-		std::fs::remove_file(&path).ok();
-		let mut conn = rusqlite::Connection::open(&path)?;
-		conn.execute_batch(include_str!("metadb-schema.sql"))?; /* Create DB */
-		let trans = conn.transaction()?;
-
-		/* Loop and insert data into database */ {
-			/* This can't be converted to 1 long statement due to sqlite array handling */
-			let stmt_insert_mod              = &mut trans.prepare(include_str!("insert-mod.sql"))?;
-			let stmt_insert_author           = &mut trans.prepare(include_str!("insert-author.sql"))?;
-			let stmt_insert_mod_license      = &mut trans.prepare(include_str!("insert-mod-license.sql"))?;
-			let stmt_insert_mod_author       = &mut trans.prepare(include_str!("insert-mod-author.sql"))?;
-			let stmt_insert_mod_tag          = &mut trans.prepare(include_str!("insert-mod-tag.sql"))?;
-			let stmt_insert_mod_localization = &mut trans.prepare(include_str!("insert-mod-localization.sql"))?;
-			// let stmt_insert_mod_relationship = &mut trans.prepare(include_str!("insert-mod-relationship.sql"))?;
-			let stmt_insert_identifier       = &mut trans.prepare(include_str!("insert-identifier.sql"))?;
-			let stmt_insert_mod_provides     = &mut trans.prepare(include_str!("insert-mod-identifier.sql"))?;
-
-			/* Create a vector containing the read CKAN files */
-			let ckans: Vec<Ckan> = {
-				let mut v = Vec::<Ckan>::new();
+		Ok(Self {
+			modules: {
+				let mut v = HashSet::<Ckan>::new();
 
 				let compiled_schema = if do_validation {
 					Some(
@@ -85,120 +67,12 @@ impl MetaDB {
 								continue;
 							},
 						};
-						v.push(ckan);
+						v.insert(ckan);
 					}
 				}
 				v
-			};
-
-			/* Map of identifiers and their table id's */
-			let mut identifiers: HashMap<String, i64> = HashMap::new();
-			/* Map of authors and their table id's */
-			let mut authors: HashMap<String, i64> = HashMap::new();
-
-			/* Populate the identifer table */
-			for c in &ckans {
-				let mut to_add = Vec::<(bool, String)>::new();
-
-				to_add.push((false, c.identifier));
-				for id in c.provides {
-					to_add.push((true, id));
-				}
-				
-				for (virt, id) in to_add.iter().filter(|(_, id)| !identifiers.contains_key(id)) {
-					if stmt_insert_identifier.execute(params![id, virt])? > 0 {
-						identifiers.insert(id.clone(), trans.last_insert_rowid());
-					} else {
-						return Err(ParseError("couldn't insert identifier".to_string()))
-					}
-				}
 			}
-
-			/* Populate the author table */
-			for c in &ckans {
-				for author in &c.author {
-					if authors.contains_key(author) { continue; }
-					if stmt_insert_author.execute(params![author])? > 0 {
-						authors.insert(author.clone(), trans.last_insert_rowid());
-					} else {
-						return Err(ParseError("couldn't insert author".to_string()))
-					}
-				}
-			}
-
-			/* Insert the mod entries */
-			for c in ckans {
-				let changes = stmt_insert_mod.execute(params![
-					c.spec_version,
-					c.name,
-					c.r#abstract,
-					c.download,
-					c.version,
-					c.description,
-					c.release_status,
-					c.ksp_version,
-					c.ksp_version_min,
-					c.ksp_version_max,
-					c.ksp_version_strict,
-					bincode::serialize(&c.install).ok(),
-					c.download_size,
-					c.download_hash_sha1,
-					c.download_hash_sha256,
-					c.download_content_type,
-					c.release_date,
-					bincode::serialize(&c.resources).ok(),
-					bincode::serialize(&c.depends).ok(),
-					bincode::serialize(&c.recommends).ok(),
-					bincode::serialize(&c.suggests).ok(),
-					bincode::serialize(&c.supports).ok(),
-					bincode::serialize(&c.conflicts).ok(),
-					bincode::serialize(&c.replaced_by).ok(),
-				])?;
-				
-				if changes == 1 {
-					let mod_id = trans.last_insert_rowid();
-
-					{
-						let mut ids = Vec::<String>::new();
-						ids.push(c.identifier);
-						for i in c.provides {
-							ids.push(i);
-						}
-						for i in ids {
-							stmt_insert_mod_provides.execute(params![identifiers.get(&i).unwrap()])?;
-						}
-					}
-
-					for author in c.author {
-						stmt_insert_mod_author.execute(params![mod_id, authors.get(&author).unwrap()])?; /* Same here */
-					}
-
-					if let Some(locales) = c.localizations {
-						for locale in locales {
-							stmt_insert_mod_localization.execute(params![mod_id, locale])?;
-						}
-					}
-
-					for lic in c.license {
-						stmt_insert_mod_license.execute(params![mod_id, lic])?;
-					}
-
-					if let Some(tags) = c.tags {
-						for tag in tags {
-							stmt_insert_mod_tag.execute(params![mod_id, tag])?;
-						}
-					}
-				}
-			}
-		}
-
-		trans.commit()?;
-
-		Ok(
-			Self {
-				connection: conn
-			}
-		)
+		})
 	}
 }
 
@@ -216,7 +90,6 @@ mod tests {
 			gz.read_to_end(&mut v).unwrap();
 		}
 		MetaDB::generate_from_archive(
-			std::path::PathBuf::from("/tmp/metadb.db"),
 			&mut tar::Archive::new(v.as_slice()),
 			true
 		).expect("failed to generate db");

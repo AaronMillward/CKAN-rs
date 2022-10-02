@@ -1,13 +1,16 @@
-mod depenecyresolver;
+use crate::metadb::ckan;
 
+pub mod depenecyresolver;
+
+#[derive(Debug)]
 enum InstallReason {
 	AsDep,
 	Explicit,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InstalledModule {
 	identifier: String,
-	version: ModVersion,
+	version: ckan::ModVersion,
 	reason: InstallReason,
 }

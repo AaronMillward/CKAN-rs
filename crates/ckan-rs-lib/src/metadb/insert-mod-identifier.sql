@@ -1,1 +1,0 @@
-INSERT INTO "mod_identifier" (mod_id, identifier_id) VALUES (?1,?2)

@@ -5,7 +5,6 @@ pub enum Error {
 	ReqwestError(reqwest::Error),
 	IOError(std::io::Error),
 	SerdeJSONError(serde_json::Error),
-	SQLError(rusqlite::Error),
 	ParseError(String),
 	ValidationError(String),
 	InvalidSelection,
@@ -29,4 +28,3 @@ macro_rules! error_wrapper(
 error_wrapper!(reqwest::Error    , Error::ReqwestError);
 error_wrapper!(std::io::Error    , Error::IOError);
 error_wrapper!(serde_json::Error , Error::SerdeJSONError);
-error_wrapper!(rusqlite::Error   , Error::SQLError);
