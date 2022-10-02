@@ -1,6 +1,6 @@
 use crate::metadb::ckan;
 
-pub mod depenecyresolver;
+pub mod dependencyresolver;
 
 #[derive(Debug)]
 enum InstallReason {

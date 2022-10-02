@@ -132,11 +132,21 @@ name = "ckan-rs"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "ckan-rs-test-utils",
  "flate2",
  "jsonschema",
  "reqwest",
  "serde",
  "serde_json",
+ "tar",
+]
+
+[[package]]
+name = "ckan-rs-test-utils"
+version = "0.1.0"
+dependencies = [
+ "ckan-rs",
+ "flate2",
  "tar",
 ]
 

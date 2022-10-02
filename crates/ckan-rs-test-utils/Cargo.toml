@@ -1,0 +1,10 @@
+[package]
+name = "ckan-rs-test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ckan-rs = { path = "../ckan-rs-lib" }
+
+flate2 = "1.0.24"
+tar = "0.4.38"
