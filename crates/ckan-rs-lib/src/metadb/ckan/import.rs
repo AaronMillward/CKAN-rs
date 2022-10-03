@@ -156,7 +156,7 @@ impl Ckan {
 		let obj = v.as_object().ok_or_else(|| ParseError("JSON is not an object".to_string()))?;
 		Ok( Ckan {
 			spec_version: {
-				match obj.get("spec_version").unwrap_or(&Value::Null) {
+				match obj.get("spec_version").ok_or_else(|| ParseError("`spec_version` is missing".to_string()))? {
 					Value::Number(v) => v.to_string(),
 					Value::String(v) => v.to_owned(),
 					_ => return Err(ParseError("invalid type".to_string())),
@@ -167,25 +167,25 @@ impl Ckan {
 			r#abstract: get_val(obj, "abstract")?,
 			author: get_one_or_many_string(obj, "author")?,
 			download: {
-				match obj.get("download") {
-					Some(v) => {
-						match v {
-							Value::String(v) => {
-								Some(v.clone())
-							},
-							_ => return Err(ParseError("invalid type, expected string for download".to_string())),
-						}
-					},
-					None => None,
-				}
+				/* TODO: Error when key is wrong type */
+				/* TODO: Check `kind` to see if absense is an error */
+				obj.get("download")
+					.and_then(|v| v.as_str())
+					.map(|s| s.to_string())
 			},
 			license: get_one_or_many_string(obj, "license")?,
-			version: get_val(obj, "version")?,
+			version: {
+				obj.get("version")
+					.ok_or_else(|| ParseError("`version` is missing".to_string()))
+					.and_then(|v| v.as_str().ok_or_else(|| ParseError("`version` must be a string".to_string())))
+					.and_then(ModVersion::new)
+					?
+			},
 
 			/* Optionals */
 			install: {
 				if let Some(v) = obj.get("install") {
-					install::InstallDirective::from_json(v).unwrap_or_default()
+					install::InstallDirective::from_json(v)?
 				} else {
 					Vec::<install::InstallDirective>::new()
 				}

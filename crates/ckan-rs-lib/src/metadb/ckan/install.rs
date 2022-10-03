@@ -1,13 +1,9 @@
 use serde::*;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum SourceDirective {
-	#[serde(rename = "file")]
 	File(String),
-	#[serde(rename = "find")]
 	Find(String),
-	#[serde(rename = "find_regexp")]
 	FindRegExp(String),
 }
 

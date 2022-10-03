@@ -145,8 +145,10 @@ dependencies = [
 name = "ckan-rs-test-utils"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "ckan-rs",
  "flate2",
+ "serde",
  "tar",
 ]
 

@@ -7,7 +7,7 @@ pub struct ModVersion {
 }
 
 impl ModVersion {
-	pub fn new(version: String) -> crate::Result<Self> {
+	pub fn new(version: &str) -> crate::Result<Self> {
 		/* FIXME: mod_version can be *any* string so this method assumes mod_version doesn't contain a ':' */
 		let spl: Vec<&str> = version.splitn(2,':').collect();
 		Ok(ModVersion {
@@ -23,7 +23,7 @@ impl ModVersion {
 
 impl TryFrom<String> for ModVersion {
 	type Error = crate::Error;
-	fn try_from(value: String) -> Result<Self, Self::Error> { Self::new(value) }
+	fn try_from(value: String) -> Result<Self, Self::Error> { Self::new(&value) }
 }
 
 impl PartialEq for ModVersion {

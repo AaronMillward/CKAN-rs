@@ -1,8 +1,6 @@
 use serde::*;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[serde(rename_all = "lowercase")]
 pub enum Kind {
 	Package,
 	MetaPackage,
