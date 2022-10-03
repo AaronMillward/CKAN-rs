@@ -190,27 +190,34 @@ impl<'db> RelationshipResolver<'db> {
 		 *
 		 * Because of this the only way to detect case 2 is by checking if case 1 is true
 		 */
-		let mut compatible_modules = self.modules_ksp_compatible.iter().filter(|module| module.identifier == current_relationship_entry.name).collect::<Vec<_>>();
+		let mut compatible_modules = self.modules_ksp_compatible.iter().cloned().filter(|module| module.identifier == current_relationship_entry.name).collect::<Vec<_>>();
 
 		/* Handle virtual modules */
 		if compatible_modules.is_empty() {
 			if !self.decisions.contains(&current_relationship_entry.name) {
 				/* FIXME: by using `modules_ksp_compatible` we make it impossible to tell the difference between case 2 and 3. compare with all modules to make this clear */
-				let providers = self.modules_ksp_compatible.iter()
+				let mut providers = self.modules_ksp_compatible.iter()
 					.filter(|module| module.provides.contains(&current_relationship_entry.name))
 					.map(|module| module.identifier.clone())
 					.collect::<HashSet<_>>();
 
 				/* Handle no providers case. See comment above `compatible_modules` for more info */
 				if providers.is_empty() {
-					self.failed.push(FailedResolve::NoCompatibleKspVersion(current_relationship_entry.name.clone()));
-					self.resolve_queue.remove(0);
-					return RelationshipProcess::Incomplete
-				}
-
-				if providers.len() == 1 {
+					let r = self.metadb.get_modules().iter().filter(|module| module.identifier == current_relationship_entry.name).collect::<Vec<_>>();
+					if r.is_empty() {
+						self.failed.push(FailedResolve::NoCompatibleKspVersion(current_relationship_entry.name.clone()));
+						self.resolve_queue.remove(0);
+						return RelationshipProcess::Incomplete
+					} else {
+						compatible_modules = r;
+					}
+				} else if providers.len() == 1 {
 					let new_id = providers.iter().collect::<Vec<_>>()[0];
-					compatible_modules = self.modules_ksp_compatible.iter().filter(|module| &module.identifier == new_id).collect::<Vec<_>>();
+					compatible_modules = self.modules_ksp_compatible
+						.iter()
+						.cloned()
+						.filter(|module| &module.identifier == new_id)
+						.collect::<Vec<_>>();
 				} else {
 					/* Check confirmed to see if decision has already been made */
 					if self.confirmed.iter().any(|c| providers.contains(&c.identifier)) {
@@ -227,7 +234,11 @@ impl<'db> RelationshipResolver<'db> {
 				}
 			} else {
 				let new_identifier = self.decisions.get(&current_relationship_entry.name).unwrap();
-				compatible_modules = self.modules_ksp_compatible.iter().filter(|module| &module.identifier == new_identifier).collect::<Vec<_>>();
+				compatible_modules = self.modules_ksp_compatible
+					.iter()
+					.cloned()
+					.filter(|module| &module.identifier == new_identifier)
+					.collect::<Vec<_>>();
 			}
 		}
 

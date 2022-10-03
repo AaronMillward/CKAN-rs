@@ -43,27 +43,26 @@ impl PartialEq for KspVersion {
 
 impl PartialOrd for KspVersion {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some({
-			match (self.name == "any", other.name == "any") {
-				(true, true) => return Some(std::cmp::Ordering::Equal),
-				(true, false) => return Some(std::cmp::Ordering::Greater),
-				(false, true) => return Some(std::cmp::Ordering::Less),
-				(false, false) => {},
-			}
+		match (self.name == "any", other.name == "any") {
+			(true, true) => return Some(std::cmp::Ordering::Equal),
+			(true, false) => return Some(std::cmp::Ordering::Greater),
+			(false, true) => return Some(std::cmp::Ordering::Less),
+			(false, false) => {},
+		}
 
-			let lhs = self.name.split('.').collect::<Vec<_>>();
-			let rhs = other.name.split('.').collect::<Vec<_>>();
+		let lhs = self.name.split('.').collect::<Vec<_>>();
+		let rhs = other.name.split('.').collect::<Vec<_>>();
 
-			for (lhs, rhs) in lhs.iter().zip(rhs.iter()) {
-				let lhs_num = lhs.parse::<i32>().expect("version isn't a number");
-				let rhs_num = rhs.parse::<i32>().expect("version isn't a number");
-				match lhs_num.cmp(&rhs_num) {
-					std::cmp::Ordering::Equal => {},
-					ord => return Some(ord),
-				}
+		for (lhs, rhs) in lhs.iter().zip(rhs.iter()) {
+			let lhs_num = lhs.parse::<i32>().expect("version isn't a number");
+			let rhs_num = rhs.parse::<i32>().expect("version isn't a number");
+			match lhs_num.cmp(&rhs_num) {
+				std::cmp::Ordering::Equal => {},
+				ord => return Some(ord),
 			}
-			return Some(lhs.len().cmp(&rhs.len()))
-		})
+		}
+		
+		Some(lhs.len().cmp(&rhs.len()))
 	}
 }
 

@@ -17,6 +17,7 @@ fn resolve_dependency() {
 	let requirements = vec![
 		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },
 		InstallRequirement {mod_identifier: "ProceduralParts".to_string(), ..Default::default() },
+		InstallRequirement {mod_identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
