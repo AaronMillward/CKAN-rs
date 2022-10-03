@@ -101,16 +101,16 @@ impl<'db> RelationshipResolver<'db> {
 		let modules_ksp_compatible = metadb.get_modules().iter().filter(|module| {
 			/* TODO: ksp_version_strict | this needs to be fixed in KspVersion */
 			if let Some(version) = &module.ksp_version {
-				return compatible_ksp_versions.contains(version);
+				return compatible_ksp_versions.iter().any(|ksp| KspVersion::is_compatible(ksp, version))
 			}
 			match (&module.ksp_version_min, &module.ksp_version_max) {
 				(None, None) => {
-					/* XXX: at this point we can deduce the module has no ksp version requirements so we assume it doesn't care and is compatible with all versions. */
+					/* XXX: at this point we can deduce the module has no ksp version requirements. The spec says this means it is "any" */
 					true
 				},
-				(None, Some(max))      => { compatible_ksp_versions.iter().any(|ksp| ksp < max) },
-				(Some(min), None)      => { compatible_ksp_versions.iter().any(|ksp| ksp > min) },
-				(Some(min), Some(max)) => { compatible_ksp_versions.iter().any(|ksp| min < ksp && ksp < max) },
+				(None, Some(max))      => { compatible_ksp_versions.iter().any(|ksp| ksp <= max) },
+				(Some(min), None)      => { compatible_ksp_versions.iter().any(|ksp| ksp >= min) },
+				(Some(min), Some(max)) => { compatible_ksp_versions.iter().any(|ksp| min <= ksp && ksp <= max) },
 			}
 		}).collect::<Vec<_>>();
 
@@ -176,8 +176,6 @@ impl<'db> RelationshipResolver<'db> {
 				},
 			}
 		};
-
-		
 
 		/* `compatible_modules` maybe be empty for multiple reasons:
 		 * 1. The identifier is virtual so no modules actually implement it

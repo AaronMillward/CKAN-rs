@@ -122,18 +122,4 @@ pub use relationship::RelationshipEntry;
 mod kind;
 pub use kind::Kind;
 
-
-/* Conversions */
-
-fn get_one_or_many_string(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> crate::Result<Vec<String>> {
-	let v = map.get(key).ok_or_else(|| crate::Error::ParseError(format!("key {} missing", key)))?;
-	match v {
-		serde_json::Value::Array(_) => Ok(serde_json::from_value(v.to_owned())?),
-		serde_json::Value::String(v) => {
-			Ok(vec![v.to_owned()])
-		},
-		_ => Err(crate::Error::ParseError(format!("key {} is not a string or array", key))),
-	}
-}
-
 mod import;

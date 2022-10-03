@@ -3,6 +3,17 @@
 use serde::de::DeserializeOwned;
 use super::*;
 
+fn get_one_or_many_string(obj: &serde_json::Value, key: &str) -> crate::Result<Vec<String>> {
+	let v = obj.get(key).ok_or_else(|| crate::Error::ParseError(format!("key {} missing", key)))?;
+	match v {
+		serde_json::Value::Array(_) => Ok(serde_json::from_value(v.to_owned())?),
+		serde_json::Value::String(v) => {
+			Ok(vec![v.to_owned()])
+		},
+		_ => Err(crate::Error::ParseError(format!("key {} is not a string or array", key))),
+	}
+}
+
 impl install::InstallDirective {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Vec<Self>> {
 		use crate::Error::ParseError;
@@ -10,68 +21,66 @@ impl install::InstallDirective {
 
 		let mut directives = Vec::<Self>::new();
 
-		if let Some(arr) = v.as_array() {
-			for elem in arr {
-				if let Some(obj) = elem.as_object() {
-					let directive = InstallDirective::new(
-						{
-							if let Some(f) = obj.get("file") {
-								SourceDirective::File(
-									f.as_str().ok_or_else(|| ParseError("file source directive must be a string".to_string()))?.to_string()
-								)
-							} else if let Some(f) = obj.get("find") {
-								SourceDirective::Find(
-									f.as_str().ok_or_else(|| ParseError("find source directive must be a string".to_string()))?.to_string()
-								)
-							} else if let Some(f) = obj.get("find_regexp") {
-								SourceDirective::FindRegExp(
-									f.as_str().ok_or_else(|| ParseError("find_regexp source directive must be a string".to_string()))?.to_string()
-								)
-							} else {
-								return Err(ParseError("install has no valid source directive".to_string()));
-							}
-						},
-
-						{
-							if let Some(f) = obj.get("install_to") {
-								f.as_str().ok_or_else(|| ParseError("destination directive must be a string".to_string()))?.to_string()
-							} else {
-								return Err(ParseError("install has no destination directive".to_string()));
-							}
-						},
-
-						{
-							let mut add = Vec::<OptionalDirective>::new();
-							/* The spec doesn't mention specifically but I'm pretty sure each directive can only turn up once */
-							if let Some(f) = obj.get("as") {
-								add.push(OptionalDirective::As(f.as_str().ok_or_else(|| ParseError("as directive must be a string".to_string()))?.to_string()));
-							}
-							if obj.get("filter").is_some() {
-								add.push(OptionalDirective::Filter(super::get_one_or_many_string(obj, "filter")?));
-							}
-							if obj.get("filter_regexp").is_some() {
-								add.push(OptionalDirective::FilterRegExp(super::get_one_or_many_string(obj, "filter_regexp")?));
-							}
-							if obj.get("include_only").is_some() {
-								add.push(OptionalDirective::IncludeOnly(super::get_one_or_many_string(obj, "include_only")?));
-							}
-							if obj.get("include_only_regexp").is_some() {
-								add.push(OptionalDirective::IncludeOnlyRegExp(super::get_one_or_many_string(obj, "include_only_regexp")?));
-							}
-							if let Some(f) = obj.get("find_matches_files") {
-								add.push(OptionalDirective::FindMatchesFiles(f.as_bool().ok_or_else(|| ParseError("find_matches_files directive must be a bool".to_string()))?));
-							}
-
-							add
-						}
-					);
-					directives.push(directive);
-				} else {
-					return Err(ParseError("array elements must be objects".to_string()));
-				}
+		if !v.is_array() {
+			return Err(ParseError("value must be an array".to_string()));
+		}
+		for obj in v.as_array().unwrap() {
+			if !obj.is_object() {
+				return Err(ParseError("array elements must be objects".to_string()));
 			}
-		} else {
-			return Err(ParseError("must be array".to_string()));
+			let directive = InstallDirective::new(
+				{
+					if let Some(f) = obj.get("file") {
+						SourceDirective::File(
+							f.as_str().ok_or_else(|| ParseError("file source directive must be a string".to_string()))?.to_string()
+						)
+					} else if let Some(f) = obj.get("find") {
+						SourceDirective::Find(
+							f.as_str().ok_or_else(|| ParseError("find source directive must be a string".to_string()))?.to_string()
+						)
+					} else if let Some(f) = obj.get("find_regexp") {
+						SourceDirective::FindRegExp(
+							f.as_str().ok_or_else(|| ParseError("find_regexp source directive must be a string".to_string()))?.to_string()
+						)
+					} else {
+						return Err(ParseError("install has no valid source directive".to_string()));
+					}
+				},
+
+				{
+					if let Some(f) = obj.get("install_to") {
+						f.as_str().ok_or_else(|| ParseError("destination directive must be a string".to_string()))?.to_string()
+					} else {
+						return Err(ParseError("install has no destination directive".to_string()));
+					}
+				},
+
+				{
+					let mut add = Vec::<OptionalDirective>::new();
+					/* The spec doesn't mention specifically but I'm pretty sure each directive can only turn up once */
+					if let Some(f) = obj.get("as") {
+						add.push(OptionalDirective::As(f.as_str().ok_or_else(|| ParseError("as directive must be a string".to_string()))?.to_string()));
+					}
+					if obj.get("filter").is_some() {
+						add.push(OptionalDirective::Filter(get_one_or_many_string(obj, "filter")?));
+					}
+					if obj.get("filter_regexp").is_some() {
+						add.push(OptionalDirective::FilterRegExp(get_one_or_many_string(obj, "filter_regexp")?));
+					}
+					if obj.get("include_only").is_some() {
+						add.push(OptionalDirective::IncludeOnly(get_one_or_many_string(obj, "include_only")?));
+					}
+					if obj.get("include_only_regexp").is_some() {
+						add.push(OptionalDirective::IncludeOnlyRegExp(get_one_or_many_string(obj, "include_only_regexp")?));
+					}
+					if let Some(f) = obj.get("find_matches_files") {
+						add.push(OptionalDirective::FindMatchesFiles(f.as_bool().ok_or_else(|| ParseError("find_matches_files directive must be a bool".to_string()))?));
+					}
+
+					add
+				}
+			);
+			directives.push(directive);
 		}
 
 		Ok(directives)
@@ -145,15 +154,30 @@ impl Ckan {
 	pub fn read_from_json(v: serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::ParseError as ParseError;
 		use serde_json::*;
-		
-		fn get_val<T>(map: &Map<String, Value>, key: &str) -> crate::Result<T> 
+
+		fn get_val<T>(object: &Value, key: &str) -> crate::Result<T>
 		where T: DeserializeOwned {
-			Ok(
-				serde_json::from_value(map.get(key).unwrap_or(&Value::Null).to_owned())?
-			)
+			object.get(key)
+				.ok_or_else(|| ParseError(format!("Failed to get key: {}", key)))
+				.and_then(|v| serde_json::from_value::<T>(v.to_owned())
+					.map_err(crate::Error::from)
+				)
 		}
 
-		let obj = v.as_object().ok_or_else(|| ParseError("JSON is not an object".to_string()))?;
+		fn get_val_optional<T>(object: &Value, key: &str) -> crate::Result<Option<T>>
+		where T: DeserializeOwned {
+			if let Some(v) = object.get(key) {
+				serde_json::from_value::<T>(v.to_owned())
+					.map(|r| Some(r))
+					.map_err(crate::Error::from)
+			} else {
+				Ok(None)
+			}
+		}
+
+		/* FIXME: Lots of panics and error ignorance */
+
+		let obj = &v;
 		Ok( Ckan {
 			spec_version: {
 				match obj.get("spec_version").ok_or_else(|| ParseError("`spec_version` is missing".to_string()))? {
@@ -190,7 +214,7 @@ impl Ckan {
 					Vec::<install::InstallDirective>::new()
 				}
 			},
-			description: get_val(obj, "description").ok(),
+			description: get_val_optional(obj, "description")?,
 			release_status: {
 				match obj.get("release_status") {
 					Some(v) => {
@@ -212,13 +236,13 @@ impl Ckan {
 					None => ReleaseStatus::Stable,
 				}
 			},
-			ksp_version: get_val(obj, "ksp_version").ok(),
-			ksp_version_min: get_val(obj, "ksp_version_min").ok(),
-			ksp_version_max: get_val(obj, "ksp_version_max").ok(),
+			ksp_version: get_val_optional::<String>(obj, "ksp_version").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+			ksp_version_min: get_val_optional::<String>(obj, "ksp_version_min").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+			ksp_version_max: get_val_optional::<String>(obj, "ksp_version_max").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
 			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").cloned().unwrap_or(Value::Bool(true))).map_err(|_| ParseError("ksp_version_strict must be a boolean".to_string()))?,
 			tags: get_one_or_many_string(obj, "tags").ok(), /* This does work */
 			localizations: get_one_or_many_string(obj, "localizations").ok(),
-			download_size: get_val(obj, "download_size").ok(),
+			download_size: get_val_optional(obj, "download_size")?,
 			download_hash_sha1: {
 				/* Looks bad but the functional equivalent looks worse */
 				let mut res = None;
@@ -246,9 +270,9 @@ impl Ckan {
 				}
 				res
 			},
-			download_content_type: get_val(obj, "download_content_type").ok(),
-			install_size: get_val(obj, "install_size").ok(),
-			release_date: get_val(obj, "release_date").ok(),
+			download_content_type: get_val_optional(obj, "download_content_type")?,
+			install_size: get_val_optional(obj, "install_size")?,
+			release_date: get_val_optional(obj, "release_date")?,
 			depends: obj.get("depends").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			recommends: obj.get("recommends").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			suggests: obj.get("suggests").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
@@ -264,7 +288,7 @@ impl Ckan {
 					.collect::<HashSet<_>>())
 				).unwrap_or_default()
 			},
-			resources: get_val(obj, "resources").unwrap_or_default(),
+			resources: get_val(obj, "resources").unwrap_or_default(), /* FIXME: doesn't handle read errors */
 		})
 	}
 }

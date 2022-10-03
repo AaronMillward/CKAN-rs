@@ -34,20 +34,66 @@ impl PartialEq for ModVersion {
 
 impl PartialOrd for ModVersion {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		if self.epoch != other.epoch {
-			self.epoch.partial_cmp(&other.epoch)
-		} else {
-			/* TODO:FIXME: the spec is very wordy about how this is compaired, just doing something basic for now */
-			let mut ord = std::cmp::Ordering::Equal;
-			for (lhs,rhs) in self.mod_version.chars().zip(other.mod_version.chars()) {
-				let res = lhs.partial_cmp(&rhs).unwrap();
-				match res {
-					std::cmp::Ordering::Equal => continue,
-					_ => ord = res,
+		Some(match self.epoch.partial_cmp(&other.epoch).unwrap() {
+			std::cmp::Ordering::Equal => {
+				fn get_string_until_numeric(s: &str) -> (&str,&str) {
+					let mut split = 0;
+					for (i,c) in s.chars().enumerate() {
+						if c.is_numeric() {
+							split = i;
+							break;
+						}
+					}
+					if split == 0 {
+						return (s, "")
+					}
+					s.split_at(split)
 				}
-			}
-			Some(ord)
-		}
+
+				fn get_string_until_not_numeric(s: &str) -> (&str,&str) {
+					let mut split = 0;
+					for (i,c) in s.chars().enumerate() {
+						if !c.is_numeric() {
+							split = i;
+							break;
+						}
+					}
+					if split == 0 {
+						return (s, "")
+					}
+					s.split_at(split.max(0))
+				}
+
+				let mut lhs: (&str, &str) = ("", &self.mod_version);
+				let mut rhs: (&str, &str) = ("", &other.mod_version);
+				
+				while !lhs.1.is_empty() && !rhs.1.is_empty() {
+					lhs = get_string_until_numeric(lhs.1);
+					rhs = get_string_until_numeric(rhs.1);
+
+					match lhs.0.cmp(rhs.0) {
+						std::cmp::Ordering::Equal => {},
+						ord => return Some(ord)
+					}
+
+					lhs = get_string_until_not_numeric(lhs.1);
+					rhs = get_string_until_not_numeric(rhs.1);
+
+					if !lhs.0.is_empty() && !rhs.0.is_empty() {
+						let lhs_num = lhs.0.parse::<i32>().expect("can't parse version number as int");
+						let rhs_num = rhs.0.parse::<i32>().expect("can't parse version number as int");
+						
+						match lhs_num.cmp(&rhs_num) {
+							std::cmp::Ordering::Equal => {},
+							ord => return Some(ord)
+						}
+					}
+				}
+
+				lhs.1.len().cmp(&rhs.1.len())
+			},
+			ord => ord,
+		})
 	}
 }
 
@@ -56,4 +102,17 @@ impl std::hash::Hash for ModVersion {
 		self.epoch.hash(state);
 		self.mod_version.hash(state);
 	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test] fn mod_version_short_version_is_lt()           { assert!(ModVersion::new("1.2").unwrap() < ModVersion::new("1.2.3").unwrap()) }
+	#[test] fn mod_version_identical_are_eq()              { assert!(ModVersion::new("1.2.3").unwrap() == ModVersion::new("1.2.3").unwrap()) }
+	#[test] fn mod_version_higher_version_is_gt()          { assert!(ModVersion::new("1.2.3").unwrap() < ModVersion::new("1.2.4").unwrap()) }
+	#[test] fn mod_version_prefix_is_supported()           { assert!(ModVersion::new("v1.2.3").unwrap() < ModVersion::new("v1.2.4").unwrap()) }
+	#[test] fn mod_version_prefix_is_compaired_lexically() { assert!(ModVersion::new("a1.2.3").unwrap() < ModVersion::new("b1.2.3").unwrap()) }
+	#[test] fn mod_version_trailing_non_digit()            { assert!(ModVersion::new("1.2a").unwrap() < ModVersion::new("1.2b").unwrap()) }
+	#[test] fn mod_version_epoch_is_respected()            { assert!(ModVersion::new("1:1.2").unwrap() < ModVersion::new("2:v0.1").unwrap()) }
 }
