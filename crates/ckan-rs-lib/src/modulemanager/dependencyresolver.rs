@@ -196,13 +196,15 @@ impl<'db> RelationshipResolver<'db> {
 		if compatible_modules.is_empty() {
 			if !self.decisions.contains(&current_relationship_entry.name) {
 				/* FIXME: by using `modules_ksp_compatible` we make it impossible to tell the difference between case 2 and 3. compare with all modules to make this clear */
-				let mut providers = self.modules_ksp_compatible.iter()
+				let providers = self.modules_ksp_compatible.iter()
 					.filter(|module| module.provides.contains(&current_relationship_entry.name))
 					.map(|module| module.identifier.clone())
 					.collect::<HashSet<_>>();
 
 				/* Handle no providers case. See comment above `compatible_modules` for more info */
 				if providers.is_empty() {
+					/* We check if there are any modules across versions that fulfill the requirements */
+					/* TODO: Check mod versions in the filter */
 					let r = self.metadb.get_modules().iter().filter(|module| module.identifier == current_relationship_entry.name).collect::<Vec<_>>();
 					if r.is_empty() {
 						self.failed.push(FailedResolve::NoCompatibleKspVersion(current_relationship_entry.name.clone()));
@@ -212,6 +214,7 @@ impl<'db> RelationshipResolver<'db> {
 						compatible_modules = r;
 					}
 				} else if providers.len() == 1 {
+					/* If there's only 1 provider we can assume the user wants it installed */
 					let new_id = providers.iter().collect::<Vec<_>>()[0];
 					compatible_modules = self.modules_ksp_compatible
 						.iter()

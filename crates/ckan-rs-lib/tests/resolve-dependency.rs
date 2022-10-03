@@ -18,6 +18,7 @@ fn resolve_dependency() {
 		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },
 		InstallRequirement {mod_identifier: "ProceduralParts".to_string(), ..Default::default() },
 		InstallRequirement {mod_identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
+		InstallRequirement {mod_identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
@@ -27,7 +28,9 @@ fn resolve_dependency() {
 		match process {
 			RelationshipProcess::Incomplete => {},
 			RelationshipProcess::MultipleProviders(mut decision) => {
-				decision.select(decision.get_options().iter().next().cloned().unwrap());
+				let dec = decision.get_options().iter().next().cloned().unwrap();
+				eprintln!("Adding \"{}\" to decisions", dec);
+				decision.select(dec);
 				resolver.add_decision(decision);
 			},
 			RelationshipProcess::Halt => {
