@@ -6,12 +6,20 @@ pub struct KspVersion {
 }
 
 impl KspVersion {
-	/// Checks if given versions are compatible with each other
-	pub fn is_compatible(lhs: &KspVersion, rhs: &KspVersion) -> bool {
-		if lhs.name == "any" || rhs.name == "any" { return true }
-		if lhs.name.starts_with(&rhs.name) { return true }
+	/// Checks if `rhs` is a sub version of `lhs` 
+	/// 
+	/// if either `lhs` or `rhs` are "any" returns false
+	/// 
+	/// # Examples
+	/// `assert!(is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2"))`
+	pub fn is_sub_version(lhs: &KspVersion, rhs: &KspVersion) -> bool {
+		if lhs.name == "any" || rhs.name == "any" { return false }
 		if rhs.name.starts_with(&lhs.name) { return true }
 		false
+	}
+
+	pub fn is_any(&self) -> bool {
+		self.name == "any"
 	}
 }
 
@@ -36,34 +44,6 @@ impl PartialEq for KspVersion {
 impl PartialOrd for KspVersion {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some({
-			fn get_string_until_numeric(s: &str) -> (&str,&str) {
-				let mut split = 0;
-				for (i,c) in s.chars().enumerate() {
-					if c.is_numeric() {
-						split = i;
-						break;
-					}
-				}
-				if split == 0 {
-					return (s, "")
-				}
-				s.split_at(split)
-			}
-
-			fn get_string_until_not_numeric(s: &str) -> (&str,&str) {
-				let mut split = 0;
-				for (i,c) in s.chars().enumerate() {
-					if !c.is_numeric() {
-						split = i;
-						break;
-					}
-				}
-				if split == 0 {
-					return (s, "")
-				}
-				s.split_at(split.max(0))
-			}
-
 			match (self.name == "any", other.name == "any") {
 				(true, true) => return Some(std::cmp::Ordering::Equal),
 				(true, false) => return Some(std::cmp::Ordering::Greater),
@@ -71,33 +51,18 @@ impl PartialOrd for KspVersion {
 				(false, false) => {},
 			}
 
-			let mut lhs: (&str, &str) = ("", &self.name);
-			let mut rhs: (&str, &str) = ("", &other.name);
-			
-			while !lhs.1.is_empty() && !rhs.1.is_empty() {
-				lhs = get_string_until_numeric(lhs.1);
-				rhs = get_string_until_numeric(rhs.1);
+			let lhs = self.name.split('.').collect::<Vec<_>>();
+			let rhs = other.name.split('.').collect::<Vec<_>>();
 
-				match lhs.0.cmp(rhs.0) {
+			for (lhs, rhs) in lhs.iter().zip(rhs.iter()) {
+				let lhs_num = lhs.parse::<i32>().expect("version isn't a number");
+				let rhs_num = rhs.parse::<i32>().expect("version isn't a number");
+				match lhs_num.cmp(&rhs_num) {
 					std::cmp::Ordering::Equal => {},
-					ord => return Some(ord)
-				}
-
-				lhs = get_string_until_not_numeric(lhs.1);
-				rhs = get_string_until_not_numeric(rhs.1);
-
-				if !lhs.0.is_empty() && !rhs.0.is_empty() {
-					let lhs_num = lhs.0.parse::<i32>().expect("can't parse version number as int");
-					let rhs_num = rhs.0.parse::<i32>().expect("can't parse version number as int");
-					
-					match lhs_num.cmp(&rhs_num) {
-						std::cmp::Ordering::Equal => {},
-						ord => return Some(ord)
-					}
+					ord => return Some(ord),
 				}
 			}
-
-			lhs.1.len().cmp(&rhs.1.len())
+			return Some(lhs.len().cmp(&rhs.len()))
 		})
 	}
 }
@@ -106,4 +71,19 @@ impl std::hash::Hash for KspVersion {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.name.hash(state);
 	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test] fn ksp_version_compairs_as_ints() { assert!(KspVersion::new("1.9") < KspVersion::new("1.10")) }
+	#[test] fn ksp_version_short_version_is_lt() { assert!(KspVersion::new("1.12") < KspVersion::new("1.12.1")) }
+	#[test] fn ksp_version_short_version_is_gt_smaller_long_version() { assert!(KspVersion::new("1.11.1") < KspVersion::new("1.12")) }
+	#[test] fn ksp_version_identical_are_eq() { assert!(KspVersion::new("1.12.1") == KspVersion::new("1.12.1")) }
+	#[test] fn ksp_version_higher_version_is_gt() { assert!(KspVersion::new("1.12.1") < KspVersion::new("1.12.2")) }
+	#[test] fn ksp_version_is_sub_version() { assert!(KspVersion::is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2")) ) }
+	#[test] fn ksp_version_is_not_sub_version() { assert!(!KspVersion::is_sub_version(&KspVersion::new("1.11"), &KspVersion::new("1.12.2")) ) }
+	#[test] fn ksp_version_le() { assert!(KspVersion::new("1.10") <= KspVersion::new("1.11") && KspVersion::new("1.10") <= KspVersion::new("1.10")) }
+	#[test] fn ksp_version_ge() { assert!(KspVersion::new("1.11") <= KspVersion::new("1.12") && KspVersion::new("1.11") <= KspVersion::new("1.11")) }
 }

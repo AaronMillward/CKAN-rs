@@ -10,7 +10,10 @@ fn resolve_dependency() {
 		ckan_rs_test_utils::get_metadb(Some(std::path::PathBuf::from(p)))
 		// ckan_rs_test_utils::get_metadb(None)
 	};
-	let compatible_ksp_versions = HashSet::<KspVersion>::new();
+
+	let mut compatible_ksp_versions = HashSet::<KspVersion>::new();
+	compatible_ksp_versions.insert(KspVersion::new("1.12"));
+
 	let requirements = vec![
 		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },
 		InstallRequirement {mod_identifier: "ProceduralParts".to_string(), ..Default::default() },

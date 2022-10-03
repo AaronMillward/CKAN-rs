@@ -98,10 +98,16 @@ impl<'db> RelationshipResolver<'db> {
 			);
 		}
 
+		/* TODO: Don't panic */
+		if compatible_ksp_versions.is_empty() {
+			panic!("compatible_ksp_versions can't be empty") 
+		}
+
 		let modules_ksp_compatible = metadb.get_modules().iter().filter(|module| {
 			/* TODO: ksp_version_strict | this needs to be fixed in KspVersion */
 			if let Some(version) = &module.ksp_version {
-				return compatible_ksp_versions.iter().any(|ksp| KspVersion::is_compatible(ksp, version))
+				if version.is_any() { return true }
+				return compatible_ksp_versions.iter().any(|ksp| KspVersion::is_sub_version(ksp, version))
 			}
 			match (&module.ksp_version_min, &module.ksp_version_max) {
 				(None, None) => {
@@ -110,7 +116,7 @@ impl<'db> RelationshipResolver<'db> {
 				},
 				(None, Some(max))      => { compatible_ksp_versions.iter().any(|ksp| ksp <= max) },
 				(Some(min), None)      => { compatible_ksp_versions.iter().any(|ksp| ksp >= min) },
-				(Some(min), Some(max)) => { compatible_ksp_versions.iter().any(|ksp| min <= ksp && ksp <= max) },
+				(Some(min), Some(max)) => { compatible_ksp_versions.iter().any(|ksp| min <= ksp && ksp <= max) }
 			}
 		}).collect::<Vec<_>>();
 
@@ -198,6 +204,7 @@ impl<'db> RelationshipResolver<'db> {
 				/* Handle no providers case. See comment above `compatible_modules` for more info */
 				if providers.is_empty() {
 					self.failed.push(FailedResolve::NoCompatibleKspVersion(current_relationship_entry.name.clone()));
+					self.resolve_queue.remove(0);
 					return RelationshipProcess::Incomplete
 				}
 
