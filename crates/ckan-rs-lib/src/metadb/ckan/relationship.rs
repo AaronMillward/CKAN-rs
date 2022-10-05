@@ -1,13 +1,21 @@
 use serde::*;
 use super::{*, mod_version::ModVersion};
 
+/// Describes a module using an identifier and version requirement.
+/// 
+/// # Usage
+/// It is an error to use `version` with either `min_version` or `max_version`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RelationshipEntry {
+pub struct ModuleDescriptor {
 	pub name: String,
+	/* TODO: Use enum to enforce usage restrictions */
 	pub version: Option<ModVersion>,
 	pub min_version: Option<ModVersion>,
 	pub max_version: Option<ModVersion>,
-} impl RelationshipEntry {
+} 
+
+impl ModuleDescriptor {
+	/// It is an error to use `version` with either `min_version` or `max_version`
 	pub fn new(name: String, version: Option<String>, min_version: Option<String>, max_version: Option<String> ) -> Self {
 		/* TODO: Don't panic */
 		if version.is_some() && (min_version.is_some() || max_version.is_some()) { panic!("relationship entry can't mix version with min_version or max_version") }
@@ -23,12 +31,13 @@ pub struct RelationshipEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Relationship {
-	AnyOf(Vec<RelationshipEntry>),
-	One(RelationshipEntry),
+	AnyOf(Vec<ModuleDescriptor>),
+	One(ModuleDescriptor),
 }
 
 impl Relationship {
-	pub fn as_vec(&self) -> Vec<&RelationshipEntry> {
+	/// Convienience function to collapse this relationship into a vector
+	pub fn as_vec(&self) -> Vec<&ModuleDescriptor> {
 		match self {
 			Relationship::AnyOf(v) => v.iter().collect::<Vec<_>>(),
 			Relationship::One(r) => vec![r],
@@ -36,27 +45,25 @@ impl Relationship {
 	}
 }
 
-pub fn does_module_fulfill_relationship(relationship: &Relationship, module: &Ckan) -> bool {
-	let v = match relationship {
-		Relationship::AnyOf(v) => v.iter().collect(),
-		Relationship::One(rel) => vec![rel],
-	};
-	
-	let mut does_not_match = false;
-	for rel in v {
-		if module.identifier == rel.name {
-			if let Some(version) = &rel.version {
-				does_not_match &= &module.version == version;
-			}
-			if let Some(min_version) = &rel.min_version {
-				does_not_match &= &module.version < min_version;
-			}
-			if let Some(max_version) = &rel.max_version {
-				does_not_match &= &module.version > max_version;
-			}
-		}
+pub fn does_module_fulfill_relationship(module: &Ckan, relationship: &Relationship) -> bool {
+	for desc in relationship.as_vec() {
+		if does_module_match_descriptor(module, desc) { return true }
 	}
-	!does_not_match
+	false
+}
+
+pub fn does_module_match_descriptor(module: &Ckan, descriptor: &ModuleDescriptor) -> bool {
+	if module.identifier != descriptor.name && !module.provides.iter().any(|m| m == &descriptor.name) {
+		return false
+	}
+	match (&descriptor.version, &descriptor.min_version, &descriptor.max_version) {
+		(None, None, None) => true,
+		(None, None, Some(max)) => &module.version <= max,
+		(None, Some(min), None) => &module.version >= min,
+		(None, Some(min), Some(max)) => min <= &module.version && &module.version <= max,
+		(Some(v), None, None) => &module.version == v,
+		_ => panic!("invalid relationship entry")
+	}
 }
 
 pub use super::import::relationship_from_json as from_json;

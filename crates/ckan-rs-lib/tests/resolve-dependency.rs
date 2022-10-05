@@ -1,6 +1,5 @@
 #[test]
 fn resolve_dependency() {
-	use std::collections::HashSet;
 	use ckan_rs::modulemanager::dependencyresolver::*;
 	use ckan_rs::metadb::ckan::*;
 	
@@ -11,9 +10,8 @@ fn resolve_dependency() {
 		// ckan_rs_test_utils::get_metadb(None)
 	};
 
-	let mut compatible_ksp_versions = HashSet::<KspVersion>::new();
-	compatible_ksp_versions.insert(KspVersion::new("1.12"));
-
+	let compatible_ksp_versions = vec![KspVersion::new("1.12")];
+	
 	let requirements = vec![
 		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },
 		InstallRequirement {mod_identifier: "ProceduralParts".to_string(), ..Default::default() },
@@ -28,13 +26,22 @@ fn resolve_dependency() {
 		match process {
 			RelationshipProcess::Incomplete => {},
 			RelationshipProcess::MultipleProviders(mut decision) => {
-				let dec = decision.get_options().iter().next().cloned().unwrap();
-				eprintln!("Adding \"{}\" to decisions", dec);
+				let mut options = decision.get_options().iter().collect::<Vec<_>>();
+				options.sort(); /* Sort to get a consistent result when testing */
+				let dec = options[0].clone();
+				eprintln!("Adding \"{}\" to decisions from list {:?}", dec, decision.get_options());
 				decision.select(dec);
 				resolver.add_decision(decision);
 			},
 			RelationshipProcess::Halt => {
-				dbg!(resolver.get_failed_resolves());
+				for fail in resolver.get_failed_resolves() {
+					match fail {
+						FailedResolve::NoCompatibleCandidates(s) => eprintln!("NoCompatibleCandidates\n\t{}", s),
+						FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.identifier, &l.version, &l.conflicts, &r.identifier, &r.version, &r.conflicts),
+						FailedResolve::NoCompatibleKspVersion(_) => todo!(),
+						FailedResolve::IdentifierDoesNotExist(_) => todo!(),
+					}
+				}
 				panic!("Resolver Halted");
 			},
 			RelationshipProcess::Complete => { break; },

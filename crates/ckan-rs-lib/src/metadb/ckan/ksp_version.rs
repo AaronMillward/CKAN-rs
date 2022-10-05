@@ -2,6 +2,11 @@ use serde::*;
 
 #[derive(Debug, Eq, Serialize, Deserialize)]
 pub struct KspVersion {
+	/* TODO: store version numbers as ints here to avoid string processing in comparison */
+	// any: bool,
+	// major: Option<u32>,
+	// minor: Option<u32>,
+	// fix: Option<u32>,
 	name: String,
 }
 
@@ -35,18 +40,12 @@ impl From<&str> for KspVersion {
 	}
 }
 
-impl PartialEq for KspVersion {
-	fn eq(&self, other: &Self) -> bool {
-		self.name == other.name
-	}
-}
-
-impl PartialOrd for KspVersion {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl Ord for KspVersion {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		match (self.name == "any", other.name == "any") {
-			(true, true) => return Some(std::cmp::Ordering::Equal),
-			(true, false) => return Some(std::cmp::Ordering::Greater),
-			(false, true) => return Some(std::cmp::Ordering::Less),
+			(true, true) => return std::cmp::Ordering::Equal,
+			(true, false) => return std::cmp::Ordering::Greater,
+			(false, true) => return std::cmp::Ordering::Less,
 			(false, false) => {},
 		}
 
@@ -58,11 +57,23 @@ impl PartialOrd for KspVersion {
 			let rhs_num = rhs.parse::<i32>().expect("version isn't a number");
 			match lhs_num.cmp(&rhs_num) {
 				std::cmp::Ordering::Equal => {},
-				ord => return Some(ord),
+				ord => return ord,
 			}
 		}
 		
-		Some(lhs.len().cmp(&rhs.len()))
+		lhs.len().cmp(&rhs.len())
+	}
+}
+
+impl PartialOrd for KspVersion {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl PartialEq for KspVersion {
+	fn eq(&self, other: &Self) -> bool {
+		self.name == other.name
 	}
 }
 

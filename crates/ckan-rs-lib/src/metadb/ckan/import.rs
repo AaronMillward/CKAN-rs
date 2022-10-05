@@ -87,18 +87,18 @@ impl install::InstallDirective {
 	}
 }
 
-impl relationship::RelationshipEntry {
+impl relationship::ModuleDescriptor {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::ParseError;
-		Ok(relationship::RelationshipEntry::new(
+		Ok(relationship::ModuleDescriptor::new(
 			{
 				v.get("name")
 					.ok_or_else(|| ParseError("JSON has no name field".to_string()))?
 					.as_str().ok_or_else(|| ParseError("name must be a string".to_string()))?.to_string()
 			},
 			v.get("version").and_then(|v| v.as_str().map(|s| s.to_string())),
-			v.get("max_version").and_then(|v| v.as_str().map(|s| s.to_string())),
 			v.get("min_version").and_then(|v| v.as_str().map(|s| s.to_string())),
+			v.get("max_version").and_then(|v| v.as_str().map(|s| s.to_string())),
 		))
 	}
 }
@@ -117,10 +117,10 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 					/* any_of */
 					if let Some(f) = obj.get("any_of") {
 						if let Some(arr) = f.as_array() {
-							let mut ships = Vec::<RelationshipEntry>::new();
+							let mut ships = Vec::<ModuleDescriptor>::new();
 							for o in arr {
 								if o.is_object() {
-									if let Ok(val) = RelationshipEntry::from_json(o) {
+									if let Ok(val) = ModuleDescriptor::from_json(o) {
 										ships.push(val);
 									}
 								} else {
@@ -133,7 +133,7 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 						}
 					/* single */
 					} else if obj.get("name").is_some() {
-						Relationship::One(RelationshipEntry::from_json(elem)?)
+						Relationship::One(ModuleDescriptor::from_json(elem)?)
 					} else {
 						return Err(ParseError("relationship object must be a relationship or any_of constraint".to_string()));
 					}
@@ -278,7 +278,7 @@ impl Ckan {
 			suggests: obj.get("suggests").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			supports: obj.get("supports").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			conflicts: obj.get("conflicts").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			replaced_by: obj.get("replaced-by").map(|v| relationship::RelationshipEntry::from_json(v).expect("couldn't read relationship from JSON")),
+			replaced_by: obj.get("replaced-by").map(|v| relationship::ModuleDescriptor::from_json(v).expect("couldn't read relationship from JSON")),
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			provides: {
 				obj.get("provides").and_then(|value|

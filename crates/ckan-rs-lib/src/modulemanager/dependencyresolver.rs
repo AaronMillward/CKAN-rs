@@ -1,6 +1,6 @@
-//!
+//! module for creating a list of top level requirements and generating a list of required ckan modules
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::metadb::ckan::*;
 use crate::metadb::MetaDB;
@@ -54,13 +54,13 @@ pub enum FailedResolve<'db> {
 	NoCompatibleCandidates(String),
 	ModulesConflict(&'db Ckan, &'db Ckan),
 	NoCompatibleKspVersion(String),
+	IdentifierDoesNotExist(String),
 }
 
-/// DependencyResolver will take a list of top level requirements and generate a list of required modules
+/// RelationshipResolver will take a list of top level requirements and generate a list of required modules
 #[derive(Debug)]
 pub struct RelationshipResolver<'db> {
 	metadb: &'db MetaDB,
-	compatible_ksp_versions: HashSet<KspVersion>,
 	/// Tells the resolver which module to chose when faced with a decision
 	decisions: HashSet<String>,
 	/// Identifiers to be resolved
@@ -69,18 +69,16 @@ pub struct RelationshipResolver<'db> {
 	 */
 	resolve_queue: VecDeque<Relationship>,
 	/// Identifiers that have been resolved
-	completed: HashSet<String>,
+	resolved_virtual_identifiers: HashMap<String, &'db Ckan>,
 	/// Final list of modules that satisfy the requirements
 	confirmed: HashSet<&'db Ckan>,
 	/// List of failed resolves, must be empty for `confirmed` to be valid
 	failed: Vec<FailedResolve<'db>>,
-	/// List of modules narrowed to compatible ksp versions
-	modules_ksp_compatible: Vec<&'db Ckan>,
 }
 
 impl<'db> RelationshipResolver<'db> {
 	pub fn new(
-		compatible_ksp_versions: HashSet<KspVersion>,
+		mut compatible_ksp_versions: Vec<KspVersion>,
 		requirements: Vec<InstallRequirement>,
 		metadb: &'db MetaDB
 	) -> Self {
@@ -89,7 +87,7 @@ impl<'db> RelationshipResolver<'db> {
 		
 		for req in &requirements {
 			queue.push_back(
-				Relationship::One(RelationshipEntry {
+				Relationship::One(ModuleDescriptor {
 					name: req.mod_identifier.clone(),
 					version: req.required_version.clone(),
 					min_version: None,
@@ -102,33 +100,16 @@ impl<'db> RelationshipResolver<'db> {
 		if compatible_ksp_versions.is_empty() {
 			panic!("compatible_ksp_versions can't be empty") 
 		}
-
-		let modules_ksp_compatible = metadb.get_modules().iter().filter(|module| {
-			/* TODO: ksp_version_strict | this needs to be fixed in KspVersion */
-			if let Some(version) = &module.ksp_version {
-				if version.is_any() { return true }
-				return compatible_ksp_versions.iter().any(|ksp| KspVersion::is_sub_version(ksp, version))
-			}
-			match (&module.ksp_version_min, &module.ksp_version_max) {
-				(None, None) => {
-					/* XXX: at this point we can deduce the module has no ksp version requirements. The spec says this means it is "any" */
-					true
-				},
-				(None, Some(max))      => { compatible_ksp_versions.iter().any(|ksp| ksp <= max) },
-				(Some(min), None)      => { compatible_ksp_versions.iter().any(|ksp| ksp >= min) },
-				(Some(min), Some(max)) => { compatible_ksp_versions.iter().any(|ksp| min <= ksp && ksp <= max) }
-			}
-		}).collect::<Vec<_>>();
+		compatible_ksp_versions.sort();
+		compatible_ksp_versions.dedup();
 
 		Self {
 			metadb,
-			compatible_ksp_versions,
 			decisions: Default::default(),
 			resolve_queue: queue,
-			completed: Default::default(),
+			resolved_virtual_identifiers: Default::default(),
 			confirmed: Default::default(),
 			failed: Default::default(),
-			modules_ksp_compatible,
 		}
 	}
 
@@ -136,32 +117,55 @@ impl<'db> RelationshipResolver<'db> {
 	/// 
 	/// Uses a breadth first approach so higher level decisions are made first.
 	pub fn step(&mut self) -> RelationshipProcess {
-		/* Handle next relationship */
-		let current_relationship_entry = {
+
+		fn is_relationship_already_fulfilled(resolver: &RelationshipResolver, relationship: &Relationship) -> bool {
+			for desc in relationship.as_vec() {
+				if let Some(m) = resolver.resolved_virtual_identifiers.get(&desc.name) {
+					if does_module_fulfill_relationship(m, relationship) {
+						return true
+					} else {
+						/* XXX: is else an error here? the installed module doesn't fit the bounds */
+						/* So it should be uninstalled added back into the queue? */
+						todo!()
+					}
+				}
+			}
+
+			if resolver.confirmed.iter().any(|m| does_module_fulfill_relationship(m, relationship)) {
+				return true
+			}
+
+			false
+		}
+
+		/* Get next descriptor */
+		let current_descriptor = {
 			let processing_relationship = {
-				let opt = self.resolve_queue.get(0);
+				let opt = self.resolve_queue.get(0).cloned();
 				if opt.is_none() {
 					if self.failed.is_empty() {
 						return RelationshipProcess::Complete
 					} else {
+						/* We've reached the end of the resolve queue but there are errors with the resolve so we can't say it's completed */
 						return RelationshipProcess::Halt
 					}
 				}
 				opt.unwrap()
 			};
-	
-			if processing_relationship.as_vec().iter().any(|r| self.completed.contains(&r.name)) {
-				/* TODO: check that the completed module fulfills the relationship requirement */
+			
+			if is_relationship_already_fulfilled(self, &processing_relationship) {
 				self.resolve_queue.remove(0);
 				return RelationshipProcess::Incomplete
 			}
-	
+			
+			/* Now we determine which descriptor to install */
+			/* We don't need to handle virtual identifiers here, that is handled later when handling the descriptor */
 			match processing_relationship {
-				Relationship::AnyOf(v) => {
-					let mut entry: Option<&RelationshipEntry> = None;
-					for r in v {
-						if self.decisions.contains(&r.name) || self.completed.contains(&r.name) {
-							entry = Some(r);
+				Relationship::AnyOf(any_of) => { /* Ask the caller for a decision if there are multiple choices */
+					let mut entry: Option<ModuleDescriptor> = None;
+					for desc in &any_of {
+						if self.decisions.contains(&desc.name) {
+							entry = Some(desc.clone());
 							break;
 						}
 					}
@@ -171,7 +175,7 @@ impl<'db> RelationshipResolver<'db> {
 					} else {
 						return RelationshipProcess::MultipleProviders(
 							RelationshipMutlipleProvidersDecision {
-								options: v.iter().map(|r| r.name.clone()).collect(),
+								options: any_of.into_iter().map(|r| r.name).collect(),
 								selection: "".to_string(),
 							}
 						)
@@ -183,102 +187,86 @@ impl<'db> RelationshipResolver<'db> {
 			}
 		};
 
-		/* `compatible_modules` maybe be empty for multiple reasons:
-		 * 1. The identifier is virtual so no modules actually implement it
-		 * 2. The identifier has no versions compatible with the compatible ksp versions
-		 * 3. The identifier does not exist at all
-		 *
-		 * Because of this the only way to detect case 2 is by checking if case 1 is true
-		 */
-		let mut compatible_modules = self.modules_ksp_compatible.iter().cloned().filter(|module| module.identifier == current_relationship_entry.name).collect::<Vec<_>>();
+		dbg!(&current_descriptor);
 
-		/* Handle virtual modules */
+		/* XXX: Here we assume the descriptors never produce game version incompatibility */
+		/* TODO: *sigh* they do... */
+		/* This maybe be empty if the identifier does not exist at all */
+		let mut compatible_modules = self.metadb.get_modules_matching_descriptor(&current_descriptor);
+
 		if compatible_modules.is_empty() {
-			if !self.decisions.contains(&current_relationship_entry.name) {
-				/* FIXME: by using `modules_ksp_compatible` we make it impossible to tell the difference between case 2 and 3. compare with all modules to make this clear */
-				let providers = self.modules_ksp_compatible.iter()
-					.filter(|module| module.provides.contains(&current_relationship_entry.name))
-					.map(|module| module.identifier.clone())
-					.collect::<HashSet<_>>();
+			self.failed.push(FailedResolve::IdentifierDoesNotExist(current_descriptor.name.clone()));
+			self.resolve_queue.remove(0);
+			return RelationshipProcess::Incomplete
+		}
 
-				/* Handle no providers case. See comment above `compatible_modules` for more info */
-				if providers.is_empty() {
-					/* We check if there are any modules across versions that fulfill the requirements */
-					/* TODO: Check mod versions in the filter */
-					let r = self.metadb.get_modules().iter().filter(|module| module.identifier == current_relationship_entry.name).collect::<Vec<_>>();
-					if r.is_empty() {
-						self.failed.push(FailedResolve::NoCompatibleKspVersion(current_relationship_entry.name.clone()));
-						self.resolve_queue.remove(0);
-						return RelationshipProcess::Incomplete
-					} else {
-						compatible_modules = r;
-					}
-				} else if providers.len() == 1 {
-					/* If there's only 1 provider we can assume the user wants it installed */
-					let new_id = providers.iter().collect::<Vec<_>>()[0];
-					compatible_modules = self.modules_ksp_compatible
-						.iter()
-						.cloned()
-						.filter(|module| &module.identifier == new_id)
-						.collect::<Vec<_>>();
-				} else {
-					/* Check confirmed to see if decision has already been made */
-					if self.confirmed.iter().any(|c| providers.contains(&c.identifier)) {
-						self.resolve_queue.remove(0);
-						return RelationshipProcess::Incomplete
-					} else {
-						return RelationshipProcess::MultipleProviders(
-							RelationshipMutlipleProvidersDecision {
-								options: providers,
-								selection: "".to_string(),
-							}
-						)
-					}
+		/* Handle virtual identifiers which will produce multiple identifiers */
+		{
+			let id = &compatible_modules.get(0).unwrap().identifier;
+			if compatible_modules.iter().any(|m| &m.identifier != id) {
+				let providers = compatible_modules.iter().map(|module| module.identifier.clone()).collect::<HashSet<_>>();
+
+				debug_assert!( providers.len() > 1 );
+
+				/* Check confirmed to see if decision has already been made */
+				if let Some(module) = self.confirmed.iter().find(|c| providers.contains(&c.identifier)) {
+					self.resolved_virtual_identifiers.insert(current_descriptor.name.clone(), module);
+					self.resolve_queue.remove(0);
+					return RelationshipProcess::Incomplete
 				}
-			} else {
-				let new_identifier = self.decisions.get(&current_relationship_entry.name).unwrap();
-				compatible_modules = self.modules_ksp_compatible
-					.iter()
-					.cloned()
-					.filter(|module| &module.identifier == new_identifier)
-					.collect::<Vec<_>>();
+				
+				else if let Some(m_id) = self.decisions.iter().find(|s| providers.contains(*s)) {
+					compatible_modules = compatible_modules.into_iter().filter(|m| &m.identifier == m_id).collect();
+				}
+				
+				else {
+					return RelationshipProcess::MultipleProviders(
+						RelationshipMutlipleProvidersDecision {
+							options: providers,
+							selection: "".to_string(),
+						}
+					)
+				}
 			}
 		}
 
 		/* We sort the modules so the latest versions are at the start of the vec */
-		compatible_modules.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap_or(std::cmp::Ordering::Equal));
+		compatible_modules.sort();
+		compatible_modules.reverse();
 
-		/* TODO: Iterate all compatible modules instead of just the latest */
-		if let Some(candidate) = compatible_modules.get(0) {
+		let mut any_conflict = false;
+		for candidate in compatible_modules {
 			let mut conflicts = false;
 			for module in &self.confirmed {
 				if Ckan::do_modules_conflict(candidate, module) {
+					any_conflict = true;
 					self.failed.push(FailedResolve::ModulesConflict(candidate, module));
 					conflicts = true;
 				}
 			}
 
-			if !conflicts {
-				#[allow(mutable_borrow_reservation_conflict)] /* It's okay here as long as confirm_module does not alter modules_ksp_compatible */
-				/* FIXME: Find a way of doing this without the warning, maybe confirm_module takes the fields as arguments instead? */
-				self.confirm_module(candidate);
+			if conflicts {
+				self.resolve_queue.remove(0);
+			} else {
+				Self::confirm_module(&mut self.resolve_queue, &mut self.confirmed, candidate);
+				self.resolve_queue.remove(0);
+				return RelationshipProcess::Incomplete
 			}
-			self.resolve_queue.remove(0);
-		} else {
-			/* There are no compatible modules  */
-			self.failed.push(FailedResolve::NoCompatibleCandidates(current_relationship_entry.name.clone()));
-			return RelationshipProcess::Incomplete
+		}
+
+		if !any_conflict {
+			self.failed.push(FailedResolve::NoCompatibleCandidates(current_descriptor.name.clone()));
 		}
 
 		RelationshipProcess::Incomplete
 	}
 
-	fn confirm_module(&mut self, module: &'db Ckan) {
+	fn confirm_module(resolve_queue: &mut VecDeque<Relationship>, confirmed: &mut HashSet<&'db Ckan>, module: &'db Ckan) {
 		for dep in &module.depends {
-			self.resolve_queue.push_back(dep.clone())
+			eprintln!("module {} adding dep {:?}", module.identifier, dep);
+			resolve_queue.push_back(dep.clone())
 		}
-		self.completed.insert(module.identifier.clone());
-		self.confirmed.insert(module);
+		confirmed.insert(module);
 	}
 
 	pub fn add_decision(&mut self, decision: RelationshipMutlipleProvidersDecision) {

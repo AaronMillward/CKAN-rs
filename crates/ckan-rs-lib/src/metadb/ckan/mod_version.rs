@@ -28,13 +28,14 @@ impl TryFrom<String> for ModVersion {
 
 impl PartialEq for ModVersion {
 	fn eq(&self, other: &Self) -> bool {
+		self.epoch == other.epoch &&
 		self.mod_version == other.mod_version
 	}
 }
 
-impl PartialOrd for ModVersion {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(match self.epoch.partial_cmp(&other.epoch).unwrap() {
+impl Ord for ModVersion {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match self.epoch.partial_cmp(&other.epoch).unwrap() {
 			std::cmp::Ordering::Equal => {
 				fn get_string_until_numeric(s: &str) -> (&str,&str) {
 					let mut split = 0;
@@ -73,7 +74,7 @@ impl PartialOrd for ModVersion {
 
 					match lhs.0.cmp(rhs.0) {
 						std::cmp::Ordering::Equal => {},
-						ord => return Some(ord)
+						ord => return ord
 					}
 
 					lhs = get_string_until_not_numeric(lhs.1);
@@ -85,7 +86,7 @@ impl PartialOrd for ModVersion {
 						
 						match lhs_num.cmp(&rhs_num) {
 							std::cmp::Ordering::Equal => {},
-							ord => return Some(ord)
+							ord => return ord
 						}
 					}
 				}
@@ -93,7 +94,13 @@ impl PartialOrd for ModVersion {
 				lhs.1.len().cmp(&rhs.1.len())
 			},
 			ord => ord,
-		})
+		}
+	}
+}
+
+impl PartialOrd for ModVersion {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
 	}
 }
 

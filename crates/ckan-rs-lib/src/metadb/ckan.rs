@@ -1,4 +1,4 @@
-//! Module containing the various types associated with CKAN files.
+//! Various types associated with modules.
 
 use std::{collections::{HashMap, HashSet}};
 use serde::*;
@@ -6,7 +6,6 @@ use serde::*;
 /* CKAN */
 
 /// A `.ckan` file containing mod info
-/// Read more about the spec [here](https://github.com/KSP-CKAN/CKAN/blob/master/Spec.md)
 /// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead
 #[derive(Debug, Eq, Serialize, Deserialize)]
 pub struct Ckan {
@@ -44,39 +43,10 @@ pub struct Ckan {
 	pub suggests: Vec<Relationship>,
 	pub supports: Vec<Relationship>,
 	pub conflicts: Vec<Relationship>,
-	pub replaced_by: Option<RelationshipEntry>,
+	pub replaced_by: Option<ModuleDescriptor>,
 	pub kind: Kind,
 	pub provides: HashSet<String>,
 	pub resources: HashMap<String, String>,
-}
-
-impl std::cmp::PartialEq for Ckan {
-	fn eq(&self, other: &Self) -> bool {
-		self.identifier == other.identifier &&
-		self.name == other.name &&
-		self.version == other.version &&
-		self.release_status == other.release_status
-	}
-}
-
-impl std::cmp::PartialOrd for Ckan {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		match self.identifier.partial_cmp(&other.identifier) {
-			Some(core::cmp::Ordering::Equal) => {}
-			ord => return ord,
-		}
-		/* XXX: Maybe release status should affect sort order? */
-		// match self.release_status.partial_cmp(&other.release_status) {
-		// 	Some(core::cmp::Ordering::Equal) => {}
-		// 	ord => return ord,
-		// }
-		match self.version.partial_cmp(&other.version) {
-			Some(core::cmp::Ordering::Equal) => {}
-			ord => return ord,
-		}
-
-		Some(core::cmp::Ordering::Equal)
-	}
 }
 
 impl std::hash::Hash for Ckan {
@@ -87,15 +57,43 @@ impl std::hash::Hash for Ckan {
 	}
 }
 
+impl std::cmp::Ord for Ckan {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match self.identifier.cmp(&other.identifier) {
+			core::cmp::Ordering::Equal => {}
+			ord => return ord,
+		}
+		/* XXX: Maybe release status should affect sort order? */
+		// match self.release_status.partial_cmp(&other.release_status) {
+		// 	Some(core::cmp::Ordering::Equal) => {}
+		// 	ord => return ord,
+		// }
+		self.version.cmp(&other.version)
+	}
+}
+
+impl std::cmp::PartialEq for Ckan {
+	fn eq(&self, other: &Self) -> bool {
+		self.identifier == other.identifier &&
+		self.version == other.version
+	}
+}
+
+impl std::cmp::PartialOrd for Ckan {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
 impl Ckan {
 	/// Checks if the given modules conflict with each other
 	pub fn do_modules_conflict(lhs: &Self, rhs: &Self) -> bool {
 		let mut conflicts = false;
 		for con in &lhs.conflicts {
-			conflicts &= relationship::does_module_fulfill_relationship(con, rhs);
+			conflicts |= relationship::does_module_fulfill_relationship(rhs, con);
 		}
 		for con in &rhs.conflicts {
-			conflicts &= relationship::does_module_fulfill_relationship(con, lhs);
+			conflicts |= relationship::does_module_fulfill_relationship(lhs, con);
 		}
 		conflicts
 	}
@@ -115,9 +113,11 @@ pub use install::InstallDirective;
 mod release;
 pub use release::ReleaseStatus;
 
-pub(crate) mod relationship;
+mod relationship;
 pub use relationship::Relationship;
-pub use relationship::RelationshipEntry;
+pub use relationship::ModuleDescriptor;
+pub use relationship::does_module_fulfill_relationship;
+pub use relationship::does_module_match_descriptor;
 
 mod kind;
 pub use kind::Kind;
