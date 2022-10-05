@@ -1,6 +1,6 @@
 use serde::*;
 
-#[derive(Debug, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct KspVersion {
 	/* TODO: store version numbers as ints here to avoid string processing in comparison */
 	// any: bool,
@@ -16,7 +16,9 @@ impl KspVersion {
 	/// if either `lhs` or `rhs` are "any" returns false
 	/// 
 	/// # Examples
-	/// `assert!(is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2"))`
+	/// ```
+	/// assert!(is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2"))
+	/// ```
 	pub fn is_sub_version(lhs: &KspVersion, rhs: &KspVersion) -> bool {
 		if lhs.name == "any" || rhs.name == "any" { return false }
 		if rhs.name.starts_with(&lhs.name) { return true }

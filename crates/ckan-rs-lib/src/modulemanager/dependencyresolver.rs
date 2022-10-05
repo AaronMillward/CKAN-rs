@@ -3,7 +3,10 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::metadb::ckan::*;
+use crate::metadb::DescriptorMatchesExt;
+use crate::metadb::KspVersionMatchesExt;
 use crate::metadb::MetaDB;
+
 
 #[derive(Debug, Default)]
 pub struct InstallRequirement {
@@ -192,10 +195,10 @@ impl<'db> RelationshipResolver<'db> {
 		/* XXX: Here we assume the descriptors never produce game version incompatibility */
 		/* TODO: *sigh* they do... */
 		/* This maybe be empty if the identifier does not exist at all */
-		let mut compatible_modules = self.metadb.get_modules_matching_descriptor(&current_descriptor);
+		let mut compatible_modules = self.metadb.get_modules().iter().descriptor_matches(current_descriptor.clone()).collect::<Vec<_>>();
 
 		if compatible_modules.is_empty() {
-			self.failed.push(FailedResolve::IdentifierDoesNotExist(current_descriptor.name.clone()));
+			self.failed.push(FailedResolve::IdentifierDoesNotExist(current_descriptor.name));
 			self.resolve_queue.remove(0);
 			return RelationshipProcess::Incomplete
 		}
@@ -210,7 +213,7 @@ impl<'db> RelationshipResolver<'db> {
 
 				/* Check confirmed to see if decision has already been made */
 				if let Some(module) = self.confirmed.iter().find(|c| providers.contains(&c.identifier)) {
-					self.resolved_virtual_identifiers.insert(current_descriptor.name.clone(), module);
+					self.resolved_virtual_identifiers.insert(current_descriptor.name, module);
 					self.resolve_queue.remove(0);
 					return RelationshipProcess::Incomplete
 				}
@@ -255,7 +258,7 @@ impl<'db> RelationshipResolver<'db> {
 		}
 
 		if !any_conflict {
-			self.failed.push(FailedResolve::NoCompatibleCandidates(current_descriptor.name.clone()));
+			self.failed.push(FailedResolve::NoCompatibleCandidates(current_descriptor.name));
 		}
 
 		RelationshipProcess::Incomplete
