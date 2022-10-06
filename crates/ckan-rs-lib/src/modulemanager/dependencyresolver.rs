@@ -77,6 +77,8 @@ pub struct RelationshipResolver<'db> {
 	confirmed: HashSet<&'db Ckan>,
 	/// List of failed resolves, must be empty for `confirmed` to be valid
 	failed: Vec<FailedResolve<'db>>,
+
+	compatible_ksp_versions: Vec<KspVersion>,
 }
 
 impl<'db> RelationshipResolver<'db> {
@@ -113,6 +115,7 @@ impl<'db> RelationshipResolver<'db> {
 			resolved_virtual_identifiers: Default::default(),
 			confirmed: Default::default(),
 			failed: Default::default(),
+			compatible_ksp_versions,
 		}
 	}
 
@@ -192,10 +195,19 @@ impl<'db> RelationshipResolver<'db> {
 
 		dbg!(&current_descriptor);
 
-		/* XXX: Here we assume the descriptors never produce game version incompatibility */
-		/* TODO: *sigh* they do... */
 		/* This maybe be empty if the identifier does not exist at all */
-		let mut compatible_modules = self.metadb.get_modules().iter().descriptor_matches(current_descriptor.clone()).collect::<Vec<_>>();
+		let mut compatible_modules = self.metadb.get_modules().iter()
+			.descriptor_matches(current_descriptor.clone())
+			/* Modules appear to not put version restrictions on their virtual identifiers, so we have to filter to only compatible game versions.
+			 * For example, Parallax 2.0.0 requires any version of Parallax-Textures
+			 * which is provided by BeyondHome however BeyondHome isn't compatible with
+			 * Parallax 2.0.0's game version
+			 *
+			 * This does mean that all dependencies of a module have to meet the game version requirements.
+			 */
+			/* TODO: We could add some kind of decision for if game version should be checked */
+			.ksp_version_matches(self.compatible_ksp_versions.clone())
+			.collect::<Vec<_>>();
 
 		if compatible_modules.is_empty() {
 			self.failed.push(FailedResolve::IdentifierDoesNotExist(current_descriptor.name));

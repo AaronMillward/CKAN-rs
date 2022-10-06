@@ -89,13 +89,13 @@ impl std::hash::Hash for KspVersion {
 mod test {
 	use super::*;
 
-	#[test] fn ksp_version_compairs_as_ints() { assert!(KspVersion::new("1.9") < KspVersion::new("1.10")) }
+	#[test] fn ksp_version_compares_as_ints() { assert!(KspVersion::new("1.9") < KspVersion::new("1.10")) }
 	#[test] fn ksp_version_short_version_is_lt() { assert!(KspVersion::new("1.12") < KspVersion::new("1.12.1")) }
 	#[test] fn ksp_version_short_version_is_gt_smaller_long_version() { assert!(KspVersion::new("1.11.1") < KspVersion::new("1.12")) }
 	#[test] fn ksp_version_identical_are_eq() { assert!(KspVersion::new("1.12.1") == KspVersion::new("1.12.1")) }
 	#[test] fn ksp_version_higher_version_is_gt() { assert!(KspVersion::new("1.12.1") < KspVersion::new("1.12.2")) }
-	#[test] fn ksp_version_is_sub_version() { assert!(KspVersion::is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2")) ) }
-	#[test] fn ksp_version_is_not_sub_version() { assert!(!KspVersion::is_sub_version(&KspVersion::new("1.11"), &KspVersion::new("1.12.2")) ) }
+	#[test] fn ksp_version_is_sub_version() { assert!(KspVersion::is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2"))) }
+	#[test] fn ksp_version_is_not_sub_version() { assert!(!KspVersion::is_sub_version(&KspVersion::new("1.11"), &KspVersion::new("1.12.2"))) }
 	#[test] fn ksp_version_le() { assert!(KspVersion::new("1.10") <= KspVersion::new("1.11") && KspVersion::new("1.10") <= KspVersion::new("1.10")) }
 	#[test] fn ksp_version_ge() { assert!(KspVersion::new("1.11") <= KspVersion::new("1.12") && KspVersion::new("1.11") <= KspVersion::new("1.11")) }
 }

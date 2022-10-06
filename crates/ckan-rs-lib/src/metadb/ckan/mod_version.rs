@@ -35,34 +35,68 @@ impl PartialEq for ModVersion {
 
 impl Ord for ModVersion {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		match self.epoch.partial_cmp(&other.epoch).unwrap() {
+		match self.epoch.cmp(&other.epoch) {
 			std::cmp::Ordering::Equal => {
 				fn get_string_until_numeric(s: &str) -> (&str,&str) {
-					let mut split = 0;
+					if s.is_empty() {
+						return ("", "")
+					}
+
+					/* Without this versions starting with a numeric return the entire string at once.
+					 * If that happens it's hard to spot because the string will still compare 
+					 * lexically and work for most cases.
+					*/
+					if let Some(c) = s.chars().next() {
+						if c.is_numeric() {
+							return ("", s)
+						}
+					}
+
+					if s.len() == 1 {
+						return (s, "")
+					}
+
+					let mut split: Option<usize> = None;
 					for (i,c) in s.chars().enumerate() {
 						if c.is_numeric() {
-							split = i;
+							split = Some(i);
 							break;
 						}
 					}
-					if split == 0 {
-						return (s, "")
+					if let Some(i) = split {
+						s.split_at(i)
+					} else {
+						(s,"")
 					}
-					s.split_at(split)
 				}
 
 				fn get_string_until_not_numeric(s: &str) -> (&str,&str) {
-					let mut split = 0;
+					if s.is_empty() {
+						return ("", "")
+					}
+
+					if let Some(c) = s.chars().next() {
+						if !c.is_numeric() {
+							return ("", s)
+						}
+					}
+
+					if s.len() == 1 {
+						return (s, "")
+					}
+
+					let mut split: Option<usize> = None;
 					for (i,c) in s.chars().enumerate() {
 						if !c.is_numeric() {
-							split = i;
+							split = Some(i);
 							break;
 						}
 					}
-					if split == 0 {
-						return (s, "")
+					if let Some(i) = split {
+						s.split_at(i)
+					} else {
+						(s,"")
 					}
-					s.split_at(split.max(0))
 				}
 
 				let mut lhs: (&str, &str) = ("", &self.mod_version);
@@ -115,11 +149,13 @@ impl std::hash::Hash for ModVersion {
 mod test {
 	use super::*;
 
-	#[test] fn mod_version_short_version_is_lt()           { assert!(ModVersion::new("1.2").unwrap() < ModVersion::new("1.2.3").unwrap()) }
-	#[test] fn mod_version_identical_are_eq()              { assert!(ModVersion::new("1.2.3").unwrap() == ModVersion::new("1.2.3").unwrap()) }
-	#[test] fn mod_version_higher_version_is_gt()          { assert!(ModVersion::new("1.2.3").unwrap() < ModVersion::new("1.2.4").unwrap()) }
-	#[test] fn mod_version_prefix_is_supported()           { assert!(ModVersion::new("v1.2.3").unwrap() < ModVersion::new("v1.2.4").unwrap()) }
-	#[test] fn mod_version_prefix_is_compaired_lexically() { assert!(ModVersion::new("a1.2.3").unwrap() < ModVersion::new("b1.2.3").unwrap()) }
-	#[test] fn mod_version_trailing_non_digit()            { assert!(ModVersion::new("1.2a").unwrap() < ModVersion::new("1.2b").unwrap()) }
-	#[test] fn mod_version_epoch_is_respected()            { assert!(ModVersion::new("1:1.2").unwrap() < ModVersion::new("2:v0.1").unwrap()) }
+	#[test] fn mod_version_are_not_compared_lexically() { assert!(ModVersion::new("1.2.4.0").unwrap() < ModVersion::new("1.2.10.0").unwrap()) }
+	#[test] fn mod_version_short_version_is_lt() { assert!(ModVersion::new("1.2").unwrap() < ModVersion::new("1.2.3").unwrap()) }
+	#[test] fn mod_version_identical_are_eq() { assert!(ModVersion::new("1.2.3").unwrap() == ModVersion::new("1.2.3").unwrap()) }
+	#[test] fn mod_version_higher_version_is_gt() { assert!(ModVersion::new("1.2.3").unwrap() < ModVersion::new("1.2.4").unwrap()) }
+	#[test] fn mod_version_prefix_is_supported() { assert!(ModVersion::new("v1.2.3").unwrap() < ModVersion::new("v1.2.4").unwrap()) }
+	#[test] fn mod_version_prefix_is_compared_lexically() { assert!(ModVersion::new("a1.2.3").unwrap() < ModVersion::new("b1.2.3").unwrap()) }
+	#[test] fn mod_version_trailing_non_digit() { assert!(ModVersion::new("1.2a").unwrap() < ModVersion::new("1.2b").unwrap()) }
+	#[test] fn mod_version_trailing_digit() { assert!(ModVersion::new("1.2").unwrap() < ModVersion::new("1.3").unwrap()) }
+	#[test] fn mod_version_epoch_is_respected() { assert!(ModVersion::new("1:1.2").unwrap() < ModVersion::new("2:v0.1").unwrap()) }
 }
