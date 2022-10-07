@@ -37,10 +37,8 @@ fn resolve_dependency() {
 				eprintln!("Resolver halted, printing failures:");
 				for fail in resolver.get_failed_resolves() {
 					match fail {
-						FailedResolve::NoCompatibleCandidates(s) => eprintln!("NoCompatibleCandidates\n\t{}", s),
 						FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.identifier, &l.version, &l.conflicts, &r.identifier, &r.version, &r.conflicts),
-						FailedResolve::NoCompatibleKspVersion(s) => eprintln!("NoCompatibleKspVersion\n\t{}", s),
-						FailedResolve::IdentifierDoesNotExist(s) => eprintln!("IdentifierDoesNotExist\n\t{}", s),
+						f => eprintln!("{:?}", f),
 					}
 				}
 				panic!("Resolver Halted");

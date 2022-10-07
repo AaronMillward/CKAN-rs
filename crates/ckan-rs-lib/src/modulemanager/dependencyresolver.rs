@@ -14,37 +14,15 @@ pub struct InstallRequirement {
 	pub required_version: Option<ModVersion>
 }
 
-/// Describes a decision to be made by the user when mutiple providers are available for a given module
-#[derive(Debug)]
-pub struct RelationshipMutlipleProvidersDecision {
-	/* TODO: reason field */
-	options: HashSet<String>,
-	selection: String,
-}
-
-impl RelationshipMutlipleProvidersDecision {
-	pub fn get_options(&self) -> &HashSet<String> {
-		&self.options
-	}
-
-	pub fn select(&mut self, choice: String) -> bool {
-		if !self.options.contains(&choice) {
-			false
-		} else {
-			self.selection = choice;
-			true
-		}
-	}
-
-	/* TODO: Some `finalize` function to stop users from passing incomplete decisions back to the resolver */
-}
+mod mutliple_providers_decision;
+pub use mutliple_providers_decision::MutlipleProvidersDecision;
 
 #[derive(Debug)]
 pub enum RelationshipProcess {
 	/// There are more steps to be done.
 	Incomplete,
 	/// A module was virtual and requires a decision to progress.
-	MultipleProviders(RelationshipMutlipleProvidersDecision),
+	MultipleProviders(MutlipleProvidersDecision),
 	/// There are more steps required but there are unresolved issues preventing further steps.
 	Halt,
 	/// The resolver is done
@@ -53,10 +31,16 @@ pub enum RelationshipProcess {
 
 /// Describes why a given module or identifier failed to resolve.
 #[derive(Debug)]
-pub enum FailedResolve<'db> { 
+pub enum FailedResolve<'db> {
+	/// All possible candidates for the identifier are not compatible with the current requirements.
 	NoCompatibleCandidates(String),
+	/// These two modules cannot be installed together.
 	ModulesConflict(&'db Ckan, &'db Ckan),
+	/// The identifier does exist but no version supports the compatible game versions.
 	NoCompatibleKspVersion(String),
+	/// There are no compatible modules matching this identifier.
+	NoCompatibleModules(String),
+	/// The given identifier is not present in the database.
 	IdentifierDoesNotExist(String),
 }
 
@@ -180,10 +164,9 @@ impl<'db> RelationshipResolver<'db> {
 						e
 					} else {
 						return RelationshipProcess::MultipleProviders(
-							RelationshipMutlipleProvidersDecision {
-								options: any_of.into_iter().map(|r| r.name).collect(),
-								selection: "".to_string(),
-							}
+							MutlipleProvidersDecision::new(
+								any_of.into_iter().map(|r| r.name).collect()
+							)
 						)
 					}
 				},
@@ -196,8 +179,17 @@ impl<'db> RelationshipResolver<'db> {
 		dbg!(&current_descriptor);
 
 		/* This maybe be empty if the identifier does not exist at all */
-		let mut compatible_modules = self.metadb.get_modules().iter()
-			.descriptor_matches(current_descriptor.clone())
+		let mut compatible_modules = { 
+			let mut desc_match = self.metadb.get_modules().iter()
+				.descriptor_matches(current_descriptor.clone())
+				.peekable();
+
+			if desc_match.peek().is_none() {
+				self.failed.push(FailedResolve::IdentifierDoesNotExist(current_descriptor.name));
+				self.resolve_queue.remove(0);
+				return RelationshipProcess::Incomplete
+			}
+
 			/* Modules appear to not put version restrictions on their virtual identifiers, so we have to filter to only compatible game versions.
 			 * For example, Parallax 2.0.0 requires any version of Parallax-Textures
 			 * which is provided by BeyondHome however BeyondHome isn't compatible with
@@ -206,11 +198,13 @@ impl<'db> RelationshipResolver<'db> {
 			 * This does mean that all dependencies of a module have to meet the game version requirements.
 			 */
 			/* TODO: We could add some kind of decision for if game version should be checked */
-			.ksp_version_matches(self.compatible_ksp_versions.clone())
-			.collect::<Vec<_>>();
+			desc_match
+				.ksp_version_matches(self.compatible_ksp_versions.clone())
+				.collect::<Vec<_>>()
+		};
 
 		if compatible_modules.is_empty() {
-			self.failed.push(FailedResolve::IdentifierDoesNotExist(current_descriptor.name));
+			self.failed.push(FailedResolve::NoCompatibleKspVersion(current_descriptor.name));
 			self.resolve_queue.remove(0);
 			return RelationshipProcess::Incomplete
 		}
@@ -236,10 +230,7 @@ impl<'db> RelationshipResolver<'db> {
 				
 				else {
 					return RelationshipProcess::MultipleProviders(
-						RelationshipMutlipleProvidersDecision {
-							options: providers,
-							selection: "".to_string(),
-						}
+						MutlipleProvidersDecision::new(providers)
 					)
 				}
 			}
@@ -284,8 +275,8 @@ impl<'db> RelationshipResolver<'db> {
 		confirmed.insert(module);
 	}
 
-	pub fn add_decision(&mut self, decision: RelationshipMutlipleProvidersDecision) {
-		self.decisions.insert(decision.selection);
+	pub fn add_decision(&mut self, decision: MutlipleProvidersDecision) {
+		self.decisions.insert(decision.get_decision());
 	}
 
 	pub fn get_failed_resolves(&self) -> &Vec<FailedResolve> {
