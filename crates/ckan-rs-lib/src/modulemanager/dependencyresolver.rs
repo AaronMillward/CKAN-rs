@@ -16,6 +16,8 @@ pub struct InstallRequirement {
 
 mod mutliple_providers_decision;
 pub use mutliple_providers_decision::MutlipleProvidersDecision;
+pub use mutliple_providers_decision::MutlipleProvidersDecisionFinal;
+pub use mutliple_providers_decision::MutlipleProvidersDecisionValidation;
 
 #[derive(Debug)]
 pub enum RelationshipProcess {
@@ -275,8 +277,8 @@ impl<'db> RelationshipResolver<'db> {
 		confirmed.insert(module);
 	}
 
-	pub fn add_decision(&mut self, decision: MutlipleProvidersDecision) {
-		self.decisions.insert(decision.get_decision());
+	pub fn add_decision(&mut self, decision: MutlipleProvidersDecisionFinal) {
+		self.decisions.insert(decision.selection);
 	}
 
 	pub fn get_failed_resolves(&self) -> &Vec<FailedResolve> {

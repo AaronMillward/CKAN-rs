@@ -25,13 +25,16 @@ fn resolve_dependency() {
 		let process = resolver.step();
 		match process {
 			RelationshipProcess::Incomplete => {},
-			RelationshipProcess::MultipleProviders(mut decision) => {
+			RelationshipProcess::MultipleProviders(decision) => {
 				let mut options = decision.get_options().iter().collect::<Vec<_>>();
 				options.sort(); /* Sort to get a consistent result when testing */
 				let dec = options[0].clone();
 				eprintln!("Adding \"{}\" to decisions from list {:?}", dec, decision.get_options());
-				decision.select(dec);
-				resolver.add_decision(decision);
+				let d = match decision.select(dec) {
+					MutlipleProvidersDecisionValidation::Valid(d) => d,
+					MutlipleProvidersDecisionValidation::Invalid(_) => panic!("Invalid decision"),
+				};
+				resolver.add_decision(d);
 			},
 			RelationshipProcess::Halt => {
 				eprintln!("Resolver halted, printing failures:");
