@@ -80,9 +80,10 @@ impl<'db> RelationshipResolver<'db> {
 			queue.push_back(
 				Relationship::One(ModuleDescriptor {
 					name: req.mod_identifier.clone(),
-					version: req.required_version.clone(),
-					min_version: None,
-					max_version: None,
+					version: match &req.required_version {
+						Some(v) => ModVersionBounds::Explicit(v.clone()),
+						None => ModVersionBounds::Any,
+					}
 				})
 			);
 		}
@@ -213,21 +214,21 @@ impl<'db> RelationshipResolver<'db> {
 
 		/* Handle virtual identifiers which will produce multiple identifiers */
 		{
-			let id = &compatible_modules.get(0).unwrap().identifier;
-			if compatible_modules.iter().any(|m| &m.identifier != id) {
-				let providers = compatible_modules.iter().map(|module| module.identifier.clone()).collect::<HashSet<_>>();
+			let id = &compatible_modules.get(0).unwrap().unique_id.identifier;
+			if compatible_modules.iter().any(|m| &m.unique_id.identifier != id) {
+				let providers = compatible_modules.iter().map(|module| module.unique_id.identifier.clone()).collect::<HashSet<_>>();
 
 				debug_assert!( providers.len() > 1 );
 
 				/* Check confirmed to see if decision has already been made */
-				if let Some(module) = self.confirmed.iter().find(|c| providers.contains(&c.identifier)) {
+				if let Some(module) = self.confirmed.iter().find(|c| providers.contains(&c.unique_id.identifier)) {
 					self.resolved_virtual_identifiers.insert(current_descriptor.name, module);
 					self.resolve_queue.remove(0);
 					return RelationshipProcess::Incomplete
 				}
 				
 				else if let Some(m_id) = self.decisions.iter().find(|s| providers.contains(*s)) {
-					compatible_modules = compatible_modules.into_iter().filter(|m| &m.identifier == m_id).collect();
+					compatible_modules = compatible_modules.into_iter().filter(|m| &m.unique_id.identifier == m_id).collect();
 				}
 				
 				else {
@@ -271,7 +272,7 @@ impl<'db> RelationshipResolver<'db> {
 
 	fn confirm_module(resolve_queue: &mut VecDeque<Relationship>, confirmed: &mut HashSet<&'db Ckan>, module: &'db Ckan) {
 		for dep in &module.depends {
-			eprintln!("module {} adding dep {:?}", module.identifier, dep);
+			eprintln!("module {} adding dep {:?}", module.unique_id.identifier, dep);
 			resolve_queue.push_back(dep.clone())
 		}
 		confirmed.insert(module);

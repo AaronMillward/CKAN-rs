@@ -24,8 +24,7 @@ enum ModuleVersionReason {
 /// Info about why a module was installed.
 #[derive(Clone)]
 pub struct ModuleReason {
-	identifier: String,
-	version: ckan::ModVersion,
+	identifier: ckan::ModUniqueIdentifier,
 	install_reason: InstallReason,
 	version_reason: ModuleVersionReason,
 }
@@ -73,7 +72,7 @@ impl ProfileTransaction {
 				.filter(|m| m.install_reason == InstallReason::Explicit)
 				.filter(|m| {
 					for rem in &self.remove {
-						if ckan::does_unique_module_match_descriptor(&m.identifier, &m.version, rem) {
+						if ckan::does_module_match_descriptor(&m.identifier, rem) {
 							return false
 						}
 					}
@@ -81,13 +80,11 @@ impl ProfileTransaction {
 				})
 				.cloned()
 				.map(|r| ckan::ModuleDescriptor::new(
-					r.identifier,
+					r.identifier.identifier,
 					match r.version_reason {
-						ModuleVersionReason::Explicit => Some(r.version) ,
-						ModuleVersionReason::Infered => None,
-					},
-					None,
-					None,
+						ModuleVersionReason::Explicit => ckan::ModVersionBounds::Explicit(r.identifier.version),
+						ModuleVersionReason::Infered => ckan::ModVersionBounds::Any,
+					}
 				))
 				.collect::<Vec<_>>();
 			
@@ -96,7 +93,7 @@ impl ProfileTransaction {
 			new_top_depends
 		};
 
-		let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
+		// let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
 
 		// loop {
 		// 	let process = resolver.step();

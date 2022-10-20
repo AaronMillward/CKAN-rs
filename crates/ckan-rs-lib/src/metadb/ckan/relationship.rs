@@ -1,35 +1,53 @@
 use serde::*;
 use super::{*, mod_version::ModVersion};
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ModUniqueIdentifier {
+	pub identifier: String,
+	pub version: ModVersion,
+}
+
+impl std::cmp::Ord for ModUniqueIdentifier {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match self.identifier.cmp(&other.identifier) {
+			core::cmp::Ordering::Equal => {}
+			ord => return ord,
+		}
+		/* XXX: Maybe release status should affect sort order? */
+		// match self.release_status.partial_cmp(&other.release_status) {
+		// 	Some(core::cmp::Ordering::Equal) => {}
+		// 	ord => return ord,
+		// }
+		self.version.cmp(&other.version)
+	}
+}
+
+impl std::cmp::PartialOrd for ModUniqueIdentifier {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+pub type ModVersionBounds = VersionBounds<ModVersion>;
+
 /// Describes a module using an identifier and version requirement.
-/// 
-/// # Usage
-/// It is an error to use `version` with either `min_version` or `max_version`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModuleDescriptor {
 	pub name: String,
-	/* TODO: Use enum to enforce usage restrictions */
-	pub version: Option<ModVersion>,
-	pub min_version: Option<ModVersion>,
-	pub max_version: Option<ModVersion>,
+	pub version: ModVersionBounds,
 } 
 
 impl ModuleDescriptor {
 	/// It is an error to use `version` with either `min_version` or `max_version`
-	pub fn new(name: String, version: Option<ModVersion>, min_version: Option<ModVersion>, max_version: Option<ModVersion> ) -> Self {
-		/* TODO: Don't panic */
-		if version.is_some() && (min_version.is_some() || max_version.is_some()) { panic!("relationship entry can't mix version with min_version or max_version") }
-		
+	pub fn new(name: String, version: ModVersionBounds) -> Self {
 		Self {
 			name,
 			version,
-			min_version,
-			max_version,
 		}
 	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Relationship {
 	AnyOf(Vec<ModuleDescriptor>),
 	One(ModuleDescriptor),
@@ -47,37 +65,23 @@ impl Relationship {
 
 pub fn does_module_fulfill_relationship(module: &Ckan, relationship: &Relationship) -> bool {
 	for desc in relationship.as_vec() {
-		if does_module_match_descriptor(module, desc) { return true }
+		if does_module_provide_descriptor(module, desc) { return true }
 	}
 	false
 }
 
-pub fn does_unique_module_match_descriptor(identifier: &String, version: &ModVersion, descriptor: &ModuleDescriptor) -> bool {
-	if identifier != &descriptor.name {
+pub fn does_module_match_descriptor(identifier: &ModUniqueIdentifier, descriptor: &ModuleDescriptor) -> bool {
+	if identifier.identifier != descriptor.name {
 		return false
 	}
-	match (descriptor.version.as_ref(), descriptor.min_version.as_ref(), descriptor.max_version.as_ref()) {
-		(None, None, None) => true,
-		(None, None, Some(max)) => version <= max,
-		(None, Some(min), None) => version >= min,
-		(None, Some(min), Some(max)) => min <= version && version <= max,
-		(Some(v), None, None) => version == v,
-		_ => panic!("invalid relationship entry")
-	}
+	descriptor.version.is_version_within(&identifier.version)
 }
 
-pub fn does_module_match_descriptor(module: &Ckan, descriptor: &ModuleDescriptor) -> bool {
-	if module.identifier != descriptor.name && !module.provides.iter().any(|m| m == &descriptor.name) {
+pub fn does_module_provide_descriptor(module: &Ckan, descriptor: &ModuleDescriptor) -> bool {
+	if module.unique_id.identifier != descriptor.name && !module.provides.iter().any(|m| m == &descriptor.name) {
 		return false
 	}
-	match (&descriptor.version, &descriptor.min_version, &descriptor.max_version) {
-		(None, None, None) => true,
-		(None, None, Some(max)) => &module.version <= max,
-		(None, Some(min), None) => &module.version >= min,
-		(None, Some(min), Some(max)) => min <= &module.version && &module.version <= max,
-		(Some(v), None, None) => &module.version == v,
-		_ => panic!("invalid relationship entry")
-	}
+	descriptor.version.is_version_within(&module.unique_id.version)
 }
 
 pub use super::import::relationship_from_json as from_json;

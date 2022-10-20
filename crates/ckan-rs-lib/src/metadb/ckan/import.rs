@@ -108,9 +108,11 @@ impl relationship::ModuleDescriptor {
 					.ok_or_else(|| ParseError("JSON has no name field".to_string()))?
 					.as_str().ok_or_else(|| ParseError("name must be a string".to_string()))?.to_string()
 			},
-			v.get("version").try_map(ModVersion::from_json)?,
-			v.get("min_version").try_map(ModVersion::from_json)?,
-			v.get("max_version").try_map(ModVersion::from_json)?,
+			relationship::ModVersionBounds::new(
+				v.get("version").try_map(ModVersion::from_json)?,
+				v.get("min_version").try_map(ModVersion::from_json)?,
+				v.get("max_version").try_map(ModVersion::from_json)?
+			)?
 		))
 	}
 }
@@ -198,9 +200,16 @@ impl Ckan {
 					_ => return Err(ParseError("invalid type".to_string())),
 				}
 			},
-			identifier: get_val(obj, "identifier")?,
+			unique_id: relationship::ModUniqueIdentifier {
+				identifier: get_val(obj, "identifier")?,
+				version: obj.get("version")
+					.ok_or_else(|| ParseError("`version` is missing".to_string()))
+					.and_then(|v| v.as_str().ok_or_else(|| ParseError("`version` must be a string".to_string())))
+					.and_then(ModVersion::new)
+					?,
+			},
 			name: get_val(obj, "name")?,
-			r#abstract: get_val(obj, "abstract")?,
+			blurb: get_val(obj, "abstract")?,
 			author: get_one_or_many_string(obj, "author")?,
 			download: {
 				/* TODO: Error when key is wrong type */
@@ -210,13 +219,6 @@ impl Ckan {
 					.map(|s| s.to_string())
 			},
 			license: get_one_or_many_string(obj, "license")?,
-			version: {
-				obj.get("version")
-					.ok_or_else(|| ParseError("`version` is missing".to_string()))
-					.and_then(|v| v.as_str().ok_or_else(|| ParseError("`version` must be a string".to_string())))
-					.and_then(ModVersion::new)
-					?
-			},
 
 			/* Optionals */
 			install: {
@@ -248,9 +250,13 @@ impl Ckan {
 					None => ReleaseStatus::Stable,
 				}
 			},
-			ksp_version: get_val_optional::<String>(obj, "ksp_version").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
-			ksp_version_min: get_val_optional::<String>(obj, "ksp_version_min").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
-			ksp_version_max: get_val_optional::<String>(obj, "ksp_version_max").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+			ksp_version: {
+				VersionBounds::new(
+					get_val_optional::<String>(obj, "ksp_version").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+					get_val_optional::<String>(obj, "ksp_version_min").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+					get_val_optional::<String>(obj, "ksp_version_max").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+				)?
+			},
 			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").cloned().unwrap_or(Value::Bool(true))).map_err(|_| ParseError("ksp_version_strict must be a boolean".to_string()))?,
 			tags: get_one_or_many_string(obj, "tags").ok(), /* This does work */
 			localizations: get_one_or_many_string(obj, "localizations").ok(),

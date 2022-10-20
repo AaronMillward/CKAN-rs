@@ -7,28 +7,26 @@ use serde::*;
 
 /// A `.ckan` file containing mod info
 /// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead
-#[derive(Debug, Eq, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Ckan {
 	/* Required Fields */
 	pub spec_version: String,
-	pub identifier: String,
+	pub unique_id: relationship::ModUniqueIdentifier,
 	pub name: String,
-	pub r#abstract: String,
+	/// Rust friendly alias for `abstract`
+	pub blurb: String,
 	/* one or many */
 	pub author: Vec<String>,
 	/* Required when `kind` is not `"metapackage"` or `"dlc"` */
 	pub download: Option<String>,
 	/* one or many */
 	pub license: Vec<String>,
-	pub version: ModVersion,
 	
 	/* Optional Fields */
 	pub install: Vec<InstallDirective>,
 	pub description: Option<String>,
 	pub release_status: ReleaseStatus,
-	pub ksp_version: Option<KspVersion>,
-	pub ksp_version_min: Option<KspVersion>,
-	pub ksp_version_max: Option<KspVersion>,
+	pub ksp_version: KspVersionBounds,
 	pub ksp_version_strict: Option<bool>,
 	pub tags: Option<Vec<String>>,
 	pub localizations: Option<Vec<String>>,
@@ -51,31 +49,13 @@ pub struct Ckan {
 
 impl std::hash::Hash for Ckan {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		/* XXX: As far as I'm aware these are the unique identifiers for modules */
-		self.identifier.hash(state);
-		self.version.hash(state);
+		self.unique_id.hash(state);
 	}
 }
 
 impl std::cmp::Ord for Ckan {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		match self.identifier.cmp(&other.identifier) {
-			core::cmp::Ordering::Equal => {}
-			ord => return ord,
-		}
-		/* XXX: Maybe release status should affect sort order? */
-		// match self.release_status.partial_cmp(&other.release_status) {
-		// 	Some(core::cmp::Ordering::Equal) => {}
-		// 	ord => return ord,
-		// }
-		self.version.cmp(&other.version)
-	}
-}
-
-impl std::cmp::PartialEq for Ckan {
-	fn eq(&self, other: &Self) -> bool {
-		self.identifier == other.identifier &&
-		self.version == other.version
+		self.unique_id.cmp(&other.unique_id)
 	}
 }
 
@@ -84,6 +64,14 @@ impl std::cmp::PartialOrd for Ckan {
 		Some(self.cmp(other))
 	}
 }
+
+impl std::cmp::PartialEq for Ckan {
+	fn eq(&self, other: &Self) -> bool {
+		self.unique_id == other.unique_id
+	}
+}
+
+impl std::cmp::Eq for Ckan {}
 
 impl Ckan {
 	/// Checks if the given modules conflict with each other
@@ -101,8 +89,12 @@ impl Ckan {
 
 /* CKAN Types */
 
+mod version_bounds;
+pub use version_bounds::VersionBounds;
+
 mod ksp_version;
 pub use ksp_version::KspVersion;
+pub use ksp_version::KspVersionBounds;
 
 mod mod_version;
 pub use mod_version::ModVersion;
@@ -114,11 +106,13 @@ mod release;
 pub use release::ReleaseStatus;
 
 mod relationship;
+pub use relationship::ModUniqueIdentifier;
+pub use relationship::ModVersionBounds;
 pub use relationship::Relationship;
 pub use relationship::ModuleDescriptor;
 pub use relationship::does_module_fulfill_relationship;
+pub use relationship::does_module_provide_descriptor;
 pub use relationship::does_module_match_descriptor;
-pub use relationship::does_unique_module_match_descriptor;
 
 mod kind;
 pub use kind::Kind;

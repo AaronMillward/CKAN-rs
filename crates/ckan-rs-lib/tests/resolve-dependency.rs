@@ -40,7 +40,7 @@ fn resolve_dependency() {
 				eprintln!("Resolver halted, printing failures:");
 				for fail in resolver.get_failed_resolves() {
 					match fail {
-						FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.identifier, &l.version, &l.conflicts, &r.identifier, &r.version, &r.conflicts),
+						FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.unique_id.identifier, &l.unique_id.version, &l.conflicts, &r.unique_id.identifier, &r.unique_id.version, &r.conflicts),
 						f => eprintln!("{:?}", f),
 					}
 				}
@@ -52,7 +52,7 @@ fn resolve_dependency() {
 
 	eprintln!("Final Module List:");
 	for m in resolver.get_final_module_list().unwrap() {
-		eprintln!("\tID: {} VERSION: {:?}", m.identifier, m.version);
+		eprintln!("\tID: {} VERSION: {:?}", m.unique_id.identifier, m.unique_id.version);
 	}
 
 }

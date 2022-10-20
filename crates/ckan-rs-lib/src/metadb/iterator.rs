@@ -17,23 +17,16 @@ where
 	fn next(&mut self) -> Option<Self::Item> {
 		for module in self.underlying.by_ref() {
 			/* TODO: ksp_version_strict | this needs to be fixed in KspVersion */
-			if let Some(version) = &module.ksp_version {
-				if version.is_any() ||
-					self.match_versions.iter().any(|ksp| KspVersion::is_sub_version(ksp, version))
-				{
-					return Some(module)
-				} else {
-					continue;
-				}
-			}
-			let b = match (&module.ksp_version_min, &module.ksp_version_max) {
-				/* XXX: at this point we can deduce the module has no ksp version requirements. The spec says this means it is "any" */
-				(None     , None)      => { true },
-				(None     , Some(max)) => { self.match_versions.iter().any(|ksp| ksp <= max) },
-				(Some(min), None)      => { self.match_versions.iter().any(|ksp| ksp >= min) },
-				(Some(min), Some(max)) => { self.match_versions.iter().any(|ksp| min <= ksp && ksp <= max) }
+
+			let does_match = match &module.ksp_version {
+				VersionBounds::Any => true,
+				VersionBounds::Explicit(v) => self.match_versions.iter().any(|ksp| KspVersion::is_sub_version(ksp, v)),
+				VersionBounds::MinOnly(min) => self.match_versions.iter().any(|ksp| ksp <= min),
+				VersionBounds::MaxOnly(max) => self.match_versions.iter().any(|ksp| ksp <= max),
+				VersionBounds::MinMax(min, max) => self.match_versions.iter().any(|ksp| min <= ksp && ksp <= max),
 			};
-			if b {
+
+			if does_match {
 				return Some(module)
 			} else {
 				continue;
@@ -73,7 +66,7 @@ where
 
 	fn next(&mut self) -> Option<Self::Item> {
 		for module in self.underlying.by_ref() {
-			if does_module_match_descriptor(module, &self.descriptor) {
+			if does_module_provide_descriptor(module, &self.descriptor) {
 				return Some(module)
 			}
 		}
@@ -94,3 +87,5 @@ pub trait DescriptorMatchesExt<'a>: Iterator<Item = &'a Ckan>
 }
 
 impl<'a, I: Iterator<Item = &'a Ckan>> DescriptorMatchesExt<'a> for I {}
+
+/* TODO: Tests */

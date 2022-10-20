@@ -1,5 +1,7 @@
 use serde::*;
 
+pub type KspVersionBounds = super::VersionBounds<KspVersion>;
+
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct KspVersion {
 	/* TODO: store version numbers as ints here to avoid string processing in comparison */
