@@ -1,6 +1,7 @@
 //! Functions and methods for reading CKAN types from JSON
 
 use serde::de::DeserializeOwned;
+use try_map::FallibleMapExt;
 use super::*;
 
 fn get_one_or_many_string(obj: &serde_json::Value, key: &str) -> crate::Result<Vec<String>> {
@@ -87,6 +88,17 @@ impl install::InstallDirective {
 	}
 }
 
+impl mod_version::ModVersion {
+	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
+		use crate::Error::ParseError;
+		v.as_str()
+			.ok_or_else(|| ParseError("version must be a string".to_string()))
+			.and_then(|s|
+				ModVersion::new(s).map_err(|_| ParseError("version string can't be read as a version".to_string()))
+			)
+	}
+}
+
 impl relationship::ModuleDescriptor {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::ParseError;
@@ -96,9 +108,9 @@ impl relationship::ModuleDescriptor {
 					.ok_or_else(|| ParseError("JSON has no name field".to_string()))?
 					.as_str().ok_or_else(|| ParseError("name must be a string".to_string()))?.to_string()
 			},
-			v.get("version").and_then(|v| v.as_str().map(|s| s.to_string())),
-			v.get("min_version").and_then(|v| v.as_str().map(|s| s.to_string())),
-			v.get("max_version").and_then(|v| v.as_str().map(|s| s.to_string())),
+			v.get("version").try_map(ModVersion::from_json)?,
+			v.get("min_version").try_map(ModVersion::from_json)?,
+			v.get("max_version").try_map(ModVersion::from_json)?,
 		))
 	}
 }

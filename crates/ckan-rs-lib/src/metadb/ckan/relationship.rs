@@ -16,15 +16,15 @@ pub struct ModuleDescriptor {
 
 impl ModuleDescriptor {
 	/// It is an error to use `version` with either `min_version` or `max_version`
-	pub fn new(name: String, version: Option<String>, min_version: Option<String>, max_version: Option<String> ) -> Self {
+	pub fn new(name: String, version: Option<ModVersion>, min_version: Option<ModVersion>, max_version: Option<ModVersion> ) -> Self {
 		/* TODO: Don't panic */
 		if version.is_some() && (min_version.is_some() || max_version.is_some()) { panic!("relationship entry can't mix version with min_version or max_version") }
 		
 		Self {
 			name,
-			version: version.map(|v| ModVersion::new(&v).unwrap()),
-			min_version: min_version.map(|v| ModVersion::new(&v).unwrap()),
-			max_version: max_version.map(|v| ModVersion::new(&v).unwrap()),
+			version,
+			min_version,
+			max_version,
 		}
 	}
 }
@@ -50,6 +50,20 @@ pub fn does_module_fulfill_relationship(module: &Ckan, relationship: &Relationsh
 		if does_module_match_descriptor(module, desc) { return true }
 	}
 	false
+}
+
+pub fn does_unique_module_match_descriptor(identifier: &String, version: &ModVersion, descriptor: &ModuleDescriptor) -> bool {
+	if identifier != &descriptor.name {
+		return false
+	}
+	match (descriptor.version.as_ref(), descriptor.min_version.as_ref(), descriptor.max_version.as_ref()) {
+		(None, None, None) => true,
+		(None, None, Some(max)) => version <= max,
+		(None, Some(min), None) => version >= min,
+		(None, Some(min), Some(max)) => min <= version && version <= max,
+		(Some(v), None, None) => version == v,
+		_ => panic!("invalid relationship entry")
+	}
 }
 
 pub fn does_module_match_descriptor(module: &Ckan, descriptor: &ModuleDescriptor) -> bool {

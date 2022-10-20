@@ -11,6 +11,7 @@ jsonschema = "0.16.0"
 reqwest = { version = "0.11", features = ["blocking"] }
 flate2 = "1.0.24"
 tar = "0.4.38"
+try_map = "0.3.1"
 
 [dev-dependencies]
 ckan-rs-test-utils = { path = "../ckan-rs-test-utils" }

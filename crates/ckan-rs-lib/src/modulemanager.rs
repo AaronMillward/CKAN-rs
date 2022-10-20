@@ -3,14 +3,17 @@ use std::collections::HashSet;
 use crate::metadb::ckan;
 
 pub mod dependencyresolver;
+pub use dependencyresolver::RelationshipResolver;
 
 /// Why a module was installed.
+#[derive(Clone, PartialEq, Eq)]
 enum InstallReason {
 	AsDependency,
 	Explicit,
 }
 
 /// How a version was selected.
+#[derive(Clone, PartialEq, Eq)]
 enum ModuleVersionReason {
 	/// Version was specfically requested by the user
 	Explicit,
@@ -19,6 +22,7 @@ enum ModuleVersionReason {
 }
 
 /// Info about why a module was installed.
+#[derive(Clone)]
 pub struct ModuleReason {
 	identifier: String,
 	version: ckan::ModVersion,
@@ -55,9 +59,74 @@ impl ProfileTransaction {
 	}
 
 	pub fn commit(self) -> Profile {
-		/* TODO: */
+		/* 
+		 * 1. Check `add` and `remove` for contradicting descriptors 
+		 * 2. Create a new list of modules by removing `remove` from explicitly installed
+		 * 3. Join the `add` list to this new list
+		 * 4. Run this list through the resolver
+		 * 5. Diff the result with the existing list
+		 * 6. Apply changes from diff
+		 */
 
-		/* Check `add` and `remove` for contradicting descriptors */
+		let new_top_depends = {
+			let mut new_top_depends = self.inner.installed_modules.iter()
+				.filter(|m| m.install_reason == InstallReason::Explicit)
+				.filter(|m| {
+					for rem in &self.remove {
+						if ckan::does_unique_module_match_descriptor(&m.identifier, &m.version, rem) {
+							return false
+						}
+					}
+					true
+				})
+				.cloned()
+				.map(|r| ckan::ModuleDescriptor::new(
+					r.identifier,
+					match r.version_reason {
+						ModuleVersionReason::Explicit => Some(r.version) ,
+						ModuleVersionReason::Infered => None,
+					},
+					None,
+					None,
+				))
+				.collect::<Vec<_>>();
+			
+			new_top_depends.append(&mut self.add.clone());
+			
+			new_top_depends
+		};
+
+		let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
+
+		// loop {
+		// 	let process = resolver.step();
+		// 	match process {
+		// 		RelationshipProcess::Incomplete => {},
+		// 		RelationshipProcess::MultipleProviders(decision) => {
+		// 			let mut options = decision.get_options().iter().collect::<Vec<_>>();
+		// 			options.sort(); /* Sort to get a consistent result when testing */
+		// 			let dec = options[0].clone();
+		// 			eprintln!("Adding \"{}\" to decisions from list {:?}", dec, decision.get_options());
+		// 			let d = match decision.select(dec) {
+		// 				MutlipleProvidersDecisionValidation::Valid(d) => d,
+		// 				MutlipleProvidersDecisionValidation::Invalid(_) => panic!("Invalid decision"),
+		// 			};
+		// 			resolver.add_decision(d);
+		// 		},
+		// 		RelationshipProcess::Halt => {
+		// 			eprintln!("Resolver halted, printing failures:");
+		// 			for fail in resolver.get_failed_resolves() {
+		// 				match fail {
+		// 					FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.identifier, &l.version, &l.conflicts, &r.identifier, &r.version, &r.conflicts),
+		// 					f => eprintln!("{:?}", f),
+		// 				}
+		// 			}
+		// 			panic!("Resolver Halted");
+		// 		},
+		// 		RelationshipProcess::Complete => { break; },
+		// 	}
+		// }
+
 		todo!();
 	}
 

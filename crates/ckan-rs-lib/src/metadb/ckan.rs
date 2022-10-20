@@ -118,6 +118,7 @@ pub use relationship::Relationship;
 pub use relationship::ModuleDescriptor;
 pub use relationship::does_module_fulfill_relationship;
 pub use relationship::does_module_match_descriptor;
+pub use relationship::does_unique_module_match_descriptor;
 
 mod kind;
 pub use kind::Kind;
