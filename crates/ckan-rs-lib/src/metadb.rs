@@ -10,6 +10,8 @@ pub use generation::get_latest_archive;
 mod iterator;
 pub use iterator::KspVersionMatchesExt;
 pub use iterator::DescriptorMatchesExt;
+pub use iterator::GetProvidersExt;
+pub use iterator::ModVersionMatchesExt;
 
 use std::collections::HashSet;
 use serde::{Serialize, Deserialize};

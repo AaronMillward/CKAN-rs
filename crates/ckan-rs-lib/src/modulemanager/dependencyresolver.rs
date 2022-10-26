@@ -75,7 +75,7 @@ impl<'db> RelationshipResolver<'db> {
 	) -> Self {
 		/* We intialize these with the requirements as they certainly have to exist */
 		let mut queue = VecDeque::<Relationship>::new();
-		
+
 		for req in &requirements {
 			queue.push_back(
 				Relationship::One(ModuleDescriptor {
@@ -200,7 +200,7 @@ impl<'db> RelationshipResolver<'db> {
 			 *
 			 * This does mean that all dependencies of a module have to meet the game version requirements.
 			 */
-			/* TODO: We could add some kind of decision for if game version should be checked */
+			/* TODO: We could add some kind of option for if game version should be checked */
 			desc_match
 				.ksp_version_matches(self.compatible_ksp_versions.clone())
 				.collect::<Vec<_>>()

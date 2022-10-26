@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::ckan::*;
 
 pub struct KspVersionMatches<'a, I>
@@ -50,6 +52,46 @@ pub trait KspVersionMatchesExt<'a>: Iterator<Item = &'a Ckan>
 impl<'a, I: Iterator<Item = &'a Ckan>> KspVersionMatchesExt<'a> for I {}
 
 
+pub struct ModVersionMatches<'a, I>
+where
+	I: Iterator<Item = &'a super::ckan::Ckan>,
+{
+	bounds: ModVersionBounds,
+	underlying: I,
+}
+
+impl<'a, I> Iterator for ModVersionMatches<'a, I>
+where
+	I: Iterator<Item = &'a super::ckan::Ckan>,
+{
+	type Item = I::Item;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		for module in self.underlying.by_ref() {
+			if self.bounds.is_version_within(&module.unique_id.version) {
+				return Some(module)
+			} else {
+				continue;
+			}
+		}
+		None
+	}
+}
+
+pub trait ModVersionMatchesExt<'a>: Iterator<Item = &'a Ckan>
+{
+	/// Filters the iterator to modules matching the requirements of `bounds`
+	fn mod_version_matches(self, bounds: ModVersionBounds) -> ModVersionMatches<'a, Self>
+	where
+		Self: Sized,
+	{
+		ModVersionMatches { underlying: self, bounds}
+	}
+}
+
+impl<'a, I: Iterator<Item = &'a Ckan>> ModVersionMatchesExt<'a> for I {}
+
+
 pub struct DescriptorMatches<'a, I>
 where
 	I: Iterator<Item = &'a super::ckan::Ckan>,
@@ -87,5 +129,24 @@ pub trait DescriptorMatchesExt<'a>: Iterator<Item = &'a Ckan>
 }
 
 impl<'a, I: Iterator<Item = &'a Ckan>> DescriptorMatchesExt<'a> for I {}
+
+pub trait GetProvidersExt<'a>: Iterator<Item = &'a Ckan>
+{
+	/// Filters the iterator to modules compatible with `match_versions`
+	fn get_modules_providing(mut self, descriptor: &ModuleDescriptor) -> HashMap<String, Vec<&'a Ckan>>
+	where
+		Self: Sized,
+	{
+		let mut map = HashMap::<String, Vec<&'a Ckan>>::new();
+		for module in self.by_ref() {
+			if does_module_provide_descriptor(module, descriptor) {
+				map.entry(module.unique_id.identifier.clone()).or_default().push(module);
+			}
+		}
+		map
+	}
+}
+
+impl<'a, I: Iterator<Item = &'a Ckan>> GetProvidersExt<'a> for I {}
 
 /* TODO: Tests */

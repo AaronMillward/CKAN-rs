@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use crate::metadb::ckan;
 
+pub mod dep_graph_resolver;
+
 pub mod dependencyresolver;
 pub use dependencyresolver::RelationshipResolver;
 
