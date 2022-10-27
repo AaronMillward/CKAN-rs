@@ -195,7 +195,7 @@ impl<'db> RelationshipResolver<'db> {
 
 				if !explicit_required.is_empty() {
 					let infos = explicit_required.into_iter().map(|i| {
-						/* Assume i is a Decision node */
+						/* XXX: Assumes i is a Decision node */
 
 						let decision_parent_node = &self.dep_graph[self.dep_graph.edges_directed(i, petgraph::Incoming).next().expect("floating decision node").source()];
 						let source = if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) = decision_parent_node {
@@ -206,7 +206,7 @@ impl<'db> RelationshipResolver<'db> {
 
 						
 						let mut  options = Vec::<String>::new();
-						for e in self.dep_graph.edges_directed(i, Incoming) {
+						for e in self.dep_graph.edges_directed(i, Outgoing) {
 							let target = &self.dep_graph[e.target()];
 
 							if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) = target {
@@ -284,5 +284,10 @@ impl<'db> RelationshipResolver<'db> {
 		} else {
 			Err(self)
 		}
+	}
+
+	/// Get the dependency graph regardless of state.
+	pub fn get_graph(&self) -> &DependencyGraph {
+		&self.dep_graph
 	}
 }

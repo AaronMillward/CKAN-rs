@@ -29,7 +29,7 @@ fn resolve_dependency() {
 					resolver.add_decision(&info.options[0]);
 				}
 			},
-			ResolverStatus::Failed => { panic!("resolver failed"); },
+			ResolverStatus::Failed => { dbg!(resolver.get_graph()); panic!("resolver failed"); },
 		}
 	}
 
