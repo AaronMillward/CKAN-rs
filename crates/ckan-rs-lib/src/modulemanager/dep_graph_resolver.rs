@@ -4,13 +4,27 @@ use crate::metadb::*;
 use crate::metadb::ckan::*;
 use petgraph::prelude::*;
 
-mod graph_detail;
-use graph_detail::*;
+mod dependency_graph;
+use dependency_graph::*;
 
 #[derive(Debug, Default)]
 pub struct InstallRequirement {
 	pub mod_identifier: String,
 	pub required_version: ModVersionBounds
+}
+
+pub struct DecisionInfo {
+	/* TODO: pub help_text: Option<String>, */
+	/// Available choices for the decision.
+	pub options: Vec<String>,
+	/// Which module requires this decision.
+	pub source: String,
+}
+
+pub enum ResolverStatus {
+	Complete,
+	DecisionsRequired(Vec<DecisionInfo>),
+	Failed,
 }
 
 /// RelationshipResolver will take a list of top level requirements and generate a list of required modules
@@ -47,7 +61,7 @@ impl<'db> RelationshipResolver<'db> {
 		resolver
 	}
 
-	pub fn attempt_resolve(&mut self) {
+	pub fn attempt_resolve(&mut self) -> ResolverStatus {
 		/* Overview of process
 		We attempt to uncover as many edges as possible using a breadth first approach. we do this for the following reasons;
 		- We are mainly trying to avoid requiring user feedback.
@@ -59,8 +73,8 @@ impl<'db> RelationshipResolver<'db> {
 			for e in graph.edges_directed(src, Outgoing) {
 				match e.weight() {
 					EdgeData::Conflicts(_) => continue, /* Conflicts doesn't have to point to a required node */
-					EdgeData::Selected => continue, /* `Selected` nodes will be added by `AnyOf` */
-					EdgeData::AnyOf(_) | EdgeData::Depends(_) | EdgeData::Requires | EdgeData::SameAs => {
+					EdgeData::AnyOf(_) | EdgeData::Option => continue, /* These don't represent an actual selection */
+					EdgeData::Selected | EdgeData::Depends(_) | EdgeData::Decision => {
 						if !visited.contains(&e.target()) {
 							queue.push_back(e.target());
 						}
@@ -128,19 +142,18 @@ impl<'db> RelationshipResolver<'db> {
 
 			if failed {
 				/* TODO: Analyse the error */
-				return;
+				return ResolverStatus::Failed;
 			}
 
 			if !found_dirty {
 				if pending_decision_nodes.is_empty() {
 					/* The resolve is complete */
-					return; /* TODO: return ok */
+					return ResolverStatus::Complete; /* TODO: attach list of modules */
 				}
 
-				
+				/* Handle Decision Nodes / Determine Selection */
 				/* TODO: AlwaysAskDecisions option to disabled implicit decisions */
 				/* XXX: There might be some way to check the consequences of all options to determine the best resolve */
-				/* Determine Selection */
 				let mut explicit_required = Vec::<NodeIndex>::new();
 				for decision_node in pending_decision_nodes {
 					let mut selections = Vec::<(NodeIndex, NodeIndex)>::new();
@@ -155,13 +168,12 @@ impl<'db> RelationshipResolver<'db> {
 
 						for existing_requirement in self.dep_graph.edges_directed(decision_option.target(), Incoming) {
 							match existing_requirement.weight() {
-								EdgeData::AnyOf(_) | EdgeData::Conflicts(_) => continue,
-								EdgeData::Requires
+								EdgeData::AnyOf(_) | EdgeData::Option | EdgeData::Conflicts(_) | EdgeData::Decision => continue,
 								| EdgeData::Depends(_)
-								| EdgeData::SameAs
 								| EdgeData::Selected => {
-									/* XXX: Maybe make this short-circuiting? are multiple selections valid? */
+									/* XXX: are multiple selections valid? */
 									selections.push((decision_node,decision_option.target()));
+									break;
 								},
 							}
 						}
@@ -177,7 +189,32 @@ impl<'db> RelationshipResolver<'db> {
 				}
 
 				if !explicit_required.is_empty() {
-					return; /* TODO: return the decision info to the caller */
+					let infos = explicit_required.into_iter().map(|i| {
+						/* Assume i is a Decision node */
+
+						let decision_parent_node = &self.dep_graph[self.dep_graph.edges_directed(i, petgraph::Incoming).next().expect("floating decision node").source()];
+						let source = if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) = decision_parent_node {
+							name.clone()
+						} else {
+							panic!("decision node attached to incorrect node type")
+						};
+
+						
+						let mut  options = Vec::<String>::new();
+						for e in self.dep_graph.edges_directed(i, Incoming) {
+							let target = &self.dep_graph[e.target()];
+
+							if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) = target {
+								options.push(name.clone());
+							} else {
+								panic!("incorrect decision child node type");
+							}
+						}
+						 
+						DecisionInfo { options, source }
+					}).collect::<Vec<_>>();
+
+					return ResolverStatus::DecisionsRequired(infos);
 				}
 			}
 		}
@@ -190,24 +227,8 @@ impl<'db> RelationshipResolver<'db> {
 	fn determine_module_for_candidate(&mut self, src: NodeIndex) -> Result<(), ()> {
 		if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &self.dep_graph[src] {
 			let name = name.clone();
-			/* Get the version bounds from incoming edges */
-			let bounds = {
-				/* TODO: `SameAs` Edge */
-				let mut bound = VersionBounds::Any;
 
-				for e in self.dep_graph.edges_directed(src, petgraph::Incoming) {
-					if let EdgeData::Depends(vb) = e.weight() {
-						if let Some(b) = bound.inner_join(vb) {
-							bound = b;
-						} else {
-							/* Impossible to fulfill requirements */
-							return Err(());
-						}
-					}
-				}
-
-				bound
-			};
+			let bounds = get_version_bounds_for_node(&self.dep_graph, src).ok_or(())?;
 
 			/* We don't use `bounds` yet, we want to grab every module providing the identifier so we can tell if it exists at all */
 			let matching_modules_providing = self.metadb.get_modules().iter().get_modules_providing(&ModuleDescriptor { name: name.clone(), version: VersionBounds::Any });
@@ -218,20 +239,15 @@ impl<'db> RelationshipResolver<'db> {
 				/* There's only one module providing so it's a real module */
 
 				let mut m: Vec<_> = matching_modules_providing.into_values().next().unwrap().into_iter().mod_version_matches(bounds).collect();
-
-				/* There are no modules within the version bounds */
-				if m.is_empty() { return Err(()); }
-
+				if m.is_empty() { /* There are no modules within the version bounds */ return Err(()); }
 				m = m.into_iter().ksp_version_matches(self.compatible_ksp_versions.clone()).collect();
-
-				/* There are no modules compatible with the game versions */
-				if m.is_empty() { return Err(()); }
+				if m.is_empty() { /* There are no modules compatible with the game versions */ return Err(()); }
 
 				/* TODO: Track already attempted modules and move down list. This means currently we don't actually try other module versions */
 				m.sort();
 				let latest = m.get(0).cloned().unwrap();
 
-				self.set_node_as_module(src, latest);
+				set_node_as_module(&mut self.dep_graph, src, latest);
 				
 				Ok(())
 			} else {
@@ -239,10 +255,10 @@ impl<'db> RelationshipResolver<'db> {
 				/* We represent the providers as a `Decision` node */
 				*self.dep_graph.node_weight_mut(src).unwrap() = NodeData::Virtual(name);
 				let decision = self.dep_graph.add_node(NodeData::Decision);
-				self.dep_graph.add_edge(src, decision, EdgeData::SameAs);
+				self.dep_graph.add_edge(src, decision, EdgeData::Decision);
 				for k in matching_modules_providing.keys() {
 					let provider = get_or_add_node_index(&mut self.dep_graph, k);
-					self.dep_graph.add_edge(decision, provider, EdgeData::SameAs);
+					self.dep_graph.add_edge(decision, provider, EdgeData::Option);
 				}
 				Ok(())
 			}
@@ -251,94 +267,7 @@ impl<'db> RelationshipResolver<'db> {
 		}
 	}
 
-	/// Clears `src` outbound edges and replaces them with edges from `module`
-	/// # Panics
-	/// - If `src` is not a `Candidate` or `Stub`.
-	fn set_node_as_module(&mut self, src: NodeIndex, module: &ckan::Ckan) {
-		/* TODO: Check if any requirements actually changed. without this check cyclic dependencies will repeatedly set each other as dirty */
-		let id = if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &self.dep_graph[src] {
-			name.clone()
-		} else {
-			unimplemented!("node can't be set as a module.")
-		};
-
-		clear_nodes_requirements(&mut self.dep_graph, src);
-		add_node_edges_from_module(&mut self.dep_graph, module, src);
-		self.dep_graph[src] = NodeData::Candidate(id, CandidateData { dirty: false, id: module.unique_id.clone() } );
-	}
-
 	pub fn add_decision(&mut self, identifier: &str) {
 		self.decisions.insert(identifier.to_owned());
 	}
-}
-
-/// Add all the required edges and `Decision` nodes from `module` to `src`
-/// - Sets the `dirty` flag on any candidate nodes affected.
-/// - Does not remove existing edges of the node. (See `clear_nodes_requirements()`)
-/// - Is not concerned with the type of node it is being applied to.
-fn add_node_edges_from_module(graph: &mut DependencyGraph, module: &ckan::Ckan, src: NodeIndex) {
-	for req in &module.depends {
-		match req {
-			Relationship::AnyOf(r) => {
-				let decision = graph.add_node(NodeData::Decision);
-				graph.add_edge(src, decision, EdgeData::Requires);
-				for b_desc in r {
-					let b = get_or_add_node_index(graph, &b_desc.name);
-					if let NodeData::Candidate(_, data) = &mut graph[b] { data.dirty = true; }
-					graph.add_edge(decision, b, EdgeData::AnyOf(b_desc.version.clone()));
-				}
-			},
-			Relationship::One(b_desc) => {
-				let b = get_or_add_node_index(graph, &b_desc.name);
-				if let NodeData::Candidate(_, data) = &mut graph[b] { data.dirty = true; }
-				graph.add_edge(src, b, EdgeData::Depends(b_desc.version.clone()));
-			},
-		}
-	}
-
-	for conflict in &module.conflicts {
-		for r in conflict.as_vec() {
-			let b = get_or_add_node_index(graph, &r.name);
-			if let NodeData::Candidate(_, data) = &mut graph[b] { data.dirty = true; }
-			graph.add_edge(src, b, EdgeData::Conflicts(r.version.clone()));
-		}
-	}
-}
-
-/// Removes all out going connections from `src` including `Decision` nodes attached to it.
-/// - Sets the `dirty` flag on any candidate nodes affected.
-/// - This method is also not concerned with the type of node it is being applied to.
-fn clear_nodes_requirements(graph: &mut DependencyGraph, src: NodeIndex) {
-	for id in graph.edges_directed(src, Outgoing).map(|e| e.id()).collect::<Vec<_>>() {
-		let (_, target) = graph.edge_endpoints(id).unwrap();
-		if let NodeData::Candidate(_, data) = &mut graph[target] { data.dirty = true; }
-		if matches!(graph[target], NodeData::Decision) {
-			/* XXX: Does this remove all the nodes edges? doc is unclear */
-			graph.remove_node(target);
-		}
-		graph.remove_edge(id);
-	}
-}
-
-fn get_node_index(graph: &mut DependencyGraph, node: &String) -> Option<NodeIndex> {
-	graph.node_weights()
-		.enumerate()
-		.find(|(_, data)| {
-			match data {
-				NodeData::Fixed(id, _) 
-				| NodeData::Candidate(id, _)
-				| NodeData::Stub(id)
-				| NodeData::Virtual(id) => id == node,
-
-				NodeData::Meta => false,
-				NodeData::Decision => false,
-			}
-		})
-		.map(|(i,_)| petgraph::graph::node_index(i))
-}
-
-/// Returns the index of the existing node or an `Stub` node with `name`
-fn get_or_add_node_index(graph: &mut DependencyGraph, name: &String) -> NodeIndex {
-	get_node_index(graph, name)
-		.unwrap_or_else(|| graph.add_node(NodeData::Stub(name.clone())))
 }
