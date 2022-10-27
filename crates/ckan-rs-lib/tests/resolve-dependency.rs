@@ -19,40 +19,23 @@ fn resolve_dependency() {
 		InstallRequirement {mod_identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
-	let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
+	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions);
 
 	loop {
-		let process = resolver.step();
-		match process {
-			RelationshipProcess::Incomplete => {},
-			RelationshipProcess::MultipleProviders(decision) => {
-				let mut options = decision.get_options().iter().collect::<Vec<_>>();
-				options.sort(); /* Sort to get a consistent result when testing */
-				let dec = options[0].clone();
-				eprintln!("Adding \"{}\" to decisions from list {:?}", dec, decision.get_options());
-				let d = match decision.select(dec) {
-					MutlipleProvidersDecisionValidation::Valid(d) => d,
-					MutlipleProvidersDecisionValidation::Invalid(_) => panic!("Invalid decision"),
-				};
-				resolver.add_decision(d);
-			},
-			RelationshipProcess::Halt => {
-				eprintln!("Resolver halted, printing failures:");
-				for fail in resolver.get_failed_resolves() {
-					match fail {
-						FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.unique_id.identifier, &l.unique_id.version, &l.conflicts, &r.unique_id.identifier, &r.unique_id.version, &r.conflicts),
-						f => eprintln!("{:?}", f),
-					}
+		match resolver.attempt_resolve() {
+			ResolverStatus::Complete => { dbg!(resolver); break; },
+			ResolverStatus::DecisionsRequired(infos) => {
+				for info in infos {
+					resolver.add_decision(&info.options[0]);
 				}
-				panic!("Resolver Halted");
 			},
-			RelationshipProcess::Complete => { break; },
+			ResolverStatus::Failed => { dbg!(resolver); panic!("resolver failed"); },
 		}
 	}
 
-	eprintln!("Final Module List:");
-	for m in resolver.get_final_module_list().unwrap() {
-		eprintln!("\tID: {} VERSION: {:?}", m.unique_id.identifier, m.unique_id.version);
-	}
+	// eprintln!("Final Module List:");
+	// for m in resolver.get_final_module_list().unwrap() {
+	// 	eprintln!("\tID: {} VERSION: {:?}", m.unique_id.identifier, m.unique_id.version);
+	// }
 
 }
