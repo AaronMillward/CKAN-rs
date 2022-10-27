@@ -38,6 +38,8 @@ pub struct RelationshipResolver<'db> {
 
 	dep_graph: DependencyGraph,
 	meta_node: NodeIndex,
+
+	is_complete: bool,
 }
 
 impl<'db> RelationshipResolver<'db> {
@@ -48,6 +50,7 @@ impl<'db> RelationshipResolver<'db> {
 			compatible_ksp_versions,
 			dep_graph: existing_graph.unwrap_or_default(),
 			meta_node: Default::default(),
+			is_complete: false,
 		};
 
 		let meta = resolver.dep_graph.add_node(NodeData::Meta);
@@ -142,13 +145,15 @@ impl<'db> RelationshipResolver<'db> {
 
 			if failed {
 				/* TODO: Analyse the error */
+				self.is_complete = false;
 				return ResolverStatus::Failed;
 			}
 
 			if !found_dirty {
 				if pending_decision_nodes.is_empty() {
 					/* The resolve is complete */
-					return ResolverStatus::Complete; /* TODO: attach list of modules */
+					self.is_complete = true;
+					return ResolverStatus::Complete;
 				}
 
 				/* Handle Decision Nodes / Determine Selection */
@@ -214,6 +219,7 @@ impl<'db> RelationshipResolver<'db> {
 						DecisionInfo { options, source }
 					}).collect::<Vec<_>>();
 
+					self.is_complete = false;
 					return ResolverStatus::DecisionsRequired(infos);
 				}
 			}
@@ -269,5 +275,14 @@ impl<'db> RelationshipResolver<'db> {
 
 	pub fn add_decision(&mut self, identifier: &str) {
 		self.decisions.insert(identifier.to_owned());
+	}
+
+	/// Gets the graph of the resolver if it has been completed, otherwise returns the resolver in `Err`
+	pub fn get_complete_graph(self) -> Result<DependencyGraph, Self> {
+		if self.is_complete {
+			Ok(self.dep_graph)
+		} else {
+			Err(self)
+		}
 	}
 }

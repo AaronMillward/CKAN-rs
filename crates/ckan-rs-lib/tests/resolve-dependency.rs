@@ -23,13 +23,13 @@ fn resolve_dependency() {
 
 	loop {
 		match resolver.attempt_resolve() {
-			ResolverStatus::Complete => { dbg!(resolver); break; },
+			ResolverStatus::Complete => { dbg!(resolver.get_complete_graph().unwrap()); break; },
 			ResolverStatus::DecisionsRequired(infos) => {
 				for info in infos {
 					resolver.add_decision(&info.options[0]);
 				}
 			},
-			ResolverStatus::Failed => { dbg!(resolver); panic!("resolver failed"); },
+			ResolverStatus::Failed => { panic!("resolver failed"); },
 		}
 	}
 
