@@ -170,3 +170,12 @@ pub fn get_or_add_node_index(graph: &mut DependencyGraph, name: &String) -> Node
 	get_node_index(graph, name)
 		.unwrap_or_else(|| graph.add_node(NodeData::Stub(name.clone())))
 }
+
+pub fn get_node_identifier(graph: &DependencyGraph, src: NodeIndex) -> Option<&String> {
+	let weight = graph.node_weight(src)?;
+	if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) | NodeData::Fixed(name, _) = weight {
+		Some(name)
+	} else {
+		None
+	}
+}

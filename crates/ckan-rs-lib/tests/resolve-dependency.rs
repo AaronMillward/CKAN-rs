@@ -23,19 +23,32 @@ fn resolve_dependency() {
 
 	loop {
 		match resolver.attempt_resolve() {
-			ResolverStatus::Complete => { dbg!(resolver.get_complete_graph().unwrap()); break; },
+			ResolverStatus::Complete(new_modules) => {
+				dbg!(resolver.get_complete_graph().unwrap());
+				eprintln!("Final Module List:");
+				for m in new_modules {
+					eprintln!("\tID: {} VERSION: {:?}", m.identifier, m.version);
+				}
+				break;
+			},
 			ResolverStatus::DecisionsRequired(infos) => {
 				for info in infos {
+					let mut options = info.options.clone();
+					options.sort(); /* We want to always choses the same option */
+					eprintln!("choosing `{}` from options {:?} required by `{}`", &info.options[0], &info.options, info.source);
 					resolver.add_decision(&info.options[0]);
 				}
 			},
-			ResolverStatus::Failed => { dbg!(resolver.get_graph()); panic!("resolver failed"); },
+			ResolverStatus::Failed(fails) => {
+				for fail in fails {
+					eprintln!("Module `{}` failed with {:?}", fail.0, fail.1)
+				}
+				eprintln!("-- BEGIN FAILED GRAPH DUMP --");
+				dbg!(resolver.get_graph()); 
+				eprintln!("-- END FAILED GRAPH DUMP --");
+				panic!("resolver failed"); 
+			},
 		}
 	}
-
-	// eprintln!("Final Module List:");
-	// for m in resolver.get_final_module_list().unwrap() {
-	// 	eprintln!("\tID: {} VERSION: {:?}", m.unique_id.identifier, m.unique_id.version);
-	// }
 
 }
