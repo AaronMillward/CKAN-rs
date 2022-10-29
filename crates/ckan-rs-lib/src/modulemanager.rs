@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::metadb::ckan;
 use crate::metadb::MetaDB;
 
