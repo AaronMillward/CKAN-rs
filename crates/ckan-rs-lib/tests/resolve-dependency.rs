@@ -10,7 +10,7 @@ fn resolve_dependency() {
 		// ckan_rs_test_utils::get_metadb(None)
 	};
 
-	let compatible_ksp_versions = vec![KspVersion::new("1.12")];
+	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
 	
 	let requirements = vec![
 		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },

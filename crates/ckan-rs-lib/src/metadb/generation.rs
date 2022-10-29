@@ -21,6 +21,8 @@ impl MetaDB {
 	{
 		use std::io::Read;
 
+		/* TODO: Determine if this is IO or CPU bound causing it to take 15 sec to generate. */
+
 		Ok(Self {
 			modules: {
 				let mut v = HashSet::<Ckan>::new();

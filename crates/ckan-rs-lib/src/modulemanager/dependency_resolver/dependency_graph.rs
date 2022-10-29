@@ -1,3 +1,5 @@
+//! Sub-module for only DependencyGraph functions not related to the overall resolving process.
+
 use petgraph::prelude::*;
 
 use crate::metadb::*;

@@ -1,3 +1,7 @@
+//! Utilities for getting a valid set of compatible modules to be installed.
+//! 
+//! This module aims to provide tools which can take a list of requirements from the user and provide a list of modules to install.
+//! 
 use std::collections::{HashSet, VecDeque};
 
 use crate::metadb::*;
@@ -37,12 +41,26 @@ pub enum DetermineModuleError {
 }
 
 pub enum ResolverStatus {
+	/// The resolve has been succsessful, all modules are valid and compatible with each other.
 	Complete(Vec<ckan::ModUniqueIdentifier>),
+	/// The resolver was not able to determine which module to use when presented with a choice.
+	/// Use `RelationshipResolver::add_decision` and `DecisionInfo::options` to provide the resolver with a selection.
 	DecisionsRequired(Vec<DecisionInfo>),
+	/// The resolver is unable to continue as an unavoidable conflict has occured.
+	/// 
+	/// It is best to present this information to the user and allow them to decide how to proceed.
 	Failed(Vec<(String, DetermineModuleError)>),
 }
 
 /// RelationshipResolver will take a list of top level requirements and generate a list of required modules
+/// 
+/// # Usage
+/// First create a resolver using `RelationshipResolver::new`
+/// then call `RelationshipResolver::attempt_resolve` until complete while answering any decisions presented.
+/// 
+/// ## Failures
+/// The resolver may fail for reasons described in `DetermineModuleError`
+/// when these occur they represent an error the resolver can't solve without human intervention.
 #[derive(Debug)]
 pub struct RelationshipResolver<'db> {
 	metadb: &'db MetaDB,
@@ -58,7 +76,14 @@ pub struct RelationshipResolver<'db> {
 }
 
 impl<'db> RelationshipResolver<'db> {
-	pub fn new(metadb: &'db MetaDB, modules_to_install: &'db [InstallRequirement], existing_graph: Option<DependencyGraph>, compatible_ksp_versions: Vec<KspVersion>) -> Self {
+	/// Creates a new `RelationshipResolver`.
+	/// 
+	/// # Arguments
+	/// - `metadb`: `MetaDB` containing the modules to resolve with.
+	/// - `modules_to_install`: A list of requirements to resolve.
+	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
+	/// - `compatible_ksp_versions`: Modules for these versions of the game can be installed.
+	pub fn new(metadb: &'db MetaDB, modules_to_install: &[InstallRequirement], existing_graph: Option<DependencyGraph>, compatible_ksp_versions: Vec<KspVersion>) -> Self {
 		let mut resolver = RelationshipResolver {
 			metadb,
 			decisions: Default::default(),
@@ -79,6 +104,9 @@ impl<'db> RelationshipResolver<'db> {
 		resolver
 	}
 
+	/// Run the resolver process until complete or stopped by a decision or failure.
+	/// 
+	/// See `RelationshipResolver` documentation for more info on the resolve process.
 	pub fn attempt_resolve(&mut self) -> ResolverStatus {
 		/* Overview of process
 		We attempt to uncover as many edges as possible using a breadth first approach. we do this for the following reasons;
@@ -188,7 +216,9 @@ impl<'db> RelationshipResolver<'db> {
 								/* Should never actually happen we just can't prove it to the compiler */
 								unimplemented!("bad node variant");
 							}
-						}).collect()
+						}).rev().collect()
+						/* TODO: Better install ordering */
+						/* XXX: `.rev()` seems like a crude way of getting an install order. There might be some case where a later queue item depends on an earlier one */
 					)
 				}
 
@@ -264,6 +294,9 @@ impl<'db> RelationshipResolver<'db> {
 	}
 
 	/// Reads the requirements placed on `src` and gets the latest module meeting the requirements.
+	/// 
+	/// This function makes only finds the latest candidate compatible with the node requirements.
+	/// It makes no attempt to resolve conflicts arising from this choice.
 	/// # Panics
 	/// - If `src` is not a `Candidate` or `Stub`.
 	fn determine_module_for_candidate(&mut self, src: NodeIndex) -> Result<(), DetermineModuleError> {
@@ -284,7 +317,12 @@ impl<'db> RelationshipResolver<'db> {
 				m = m.into_iter().ksp_version_matches(self.compatible_ksp_versions.clone()).collect();
 				if m.is_empty() { return Err(DetermineModuleError::NoCompatibleGameVersion); }
 
-				/* TODO: Track already attempted modules and move down list. This means currently we don't actually try other module versions */
+				/* 
+				This is the latest module that matches the requirements.
+				It's not for this function to determine the later side effects of this decision,
+				So we don't need to track the attempted modules or iterate all possible candidates.
+				*/
+
 				m.sort();
 				let latest = m.get(0).cloned().unwrap();
 
@@ -294,7 +332,7 @@ impl<'db> RelationshipResolver<'db> {
 			} else {
 				/* The module is virtual */
 				/* We represent the providers as a `Decision` node */
-				*self.dep_graph.node_weight_mut(src).unwrap() = NodeData::Virtual(name);
+				self.dep_graph[src] = NodeData::Virtual(name);
 				let decision = self.dep_graph.add_node(NodeData::Decision);
 				self.dep_graph.add_edge(src, decision, EdgeData::Decision);
 				for k in matching_modules_providing.keys() {
@@ -308,6 +346,9 @@ impl<'db> RelationshipResolver<'db> {
 		}
 	}
 
+	/// Adds an identifer to be selected when present in a decisions options.
+	/// 
+	/// This can be done at any point in the resolve process and may be required to continue the resolve.
 	pub fn add_decision(&mut self, identifier: &str) {
 		self.decisions.insert(identifier.to_owned());
 	}
@@ -322,7 +363,11 @@ impl<'db> RelationshipResolver<'db> {
 	}
 
 	/// Get the dependency graph regardless of state.
+	/// 
+	/// This is mainly for debugging purposes, it is not recommended to analyse this graph to complete the resolve.
+	/// Especially as the layout of this graph could change in the future.
 	pub fn get_graph(&self) -> &DependencyGraph {
+		/* XXX: If callers are using this function to complete resolves we should consider this a fault of the resolver for not providing the required functionality */
 		&self.dep_graph
 	}
 }
