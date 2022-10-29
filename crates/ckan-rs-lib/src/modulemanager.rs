@@ -1,130 +1,58 @@
 use std::collections::HashSet;
 
 use crate::metadb::ckan;
+use crate::metadb::MetaDB;
 
 pub mod dependency_resolver;
 
+/* TODO: Install Reason */
 
-/// Why a module was installed.
-#[derive(Clone, PartialEq, Eq)]
-enum InstallReason {
-	AsDependency,
-	Explicit,
+pub enum TransactionStatus<'db> {
+	Ok(Profile),
+	DecisionsRequired(ProfileTransaction<'db>, Vec<dependency_resolver::DecisionInfo>),
+	Failed(Profile, Vec<(String, dependency_resolver::DetermineModuleError)>),
 }
 
-/// How a version was selected.
-#[derive(Clone, PartialEq, Eq)]
-enum ModuleVersionReason {
-	/// Version was specfically requested by the user
-	Explicit,
-	/// Version was deduced from the resolver
-	Infered,
-}
+pub struct ProfileTransaction<'db> {
+	decisions: Vec<String>,
 
-/// Info about why a module was installed.
-#[derive(Clone)]
-pub struct ModuleReason {
-	identifier: ckan::ModUniqueIdentifier,
-	install_reason: InstallReason,
-	version_reason: ModuleVersionReason,
-}
-
-pub struct ProfileTransaction {
-	add: Vec<ckan::ModuleDescriptor>,
-	remove: Vec<ckan::ModuleDescriptor>,
+	metadb: &'db MetaDB,
 
 	inner: Profile,
 }
 
-impl ProfileTransaction {
-	pub fn new(profile: Profile) -> ProfileTransaction {
+impl<'db> ProfileTransaction<'db> {
+	pub fn new(profile: Profile, metadb: &'db MetaDB) -> ProfileTransaction {
 		Self {
 			inner: profile,
-			add: Default::default(),
-			remove: Default::default(),
+			decisions: Default::default(),
+			metadb,
 		}
 	}
 
-	pub fn add_modules(&mut self, modules: &[ckan::ModuleDescriptor]) {
-		for m in modules {
-			self.add.push(m.clone());
-		}
+	pub fn add_decision(&mut self, identifier: &str) {
+		self.decisions.push(identifier.to_owned());
 	}
 
-	pub fn remove_modules(&mut self, modules: &[ckan::ModuleDescriptor]) {
-		for m in modules {
-			self.remove.push(m.clone());
+	pub fn commit(self) -> TransactionStatus<'db> {
+		/* TODO: Less brute force approach */
+		let mut resolver = dependency_resolver::RelationshipResolver::new(self.metadb, &self.inner.wanted, None, self.inner.compatible_ksp_versions.clone());
+		for d in &self.decisions {
+			resolver.add_decision(d);
 		}
-	}
 
-	pub fn commit(self) -> Profile {
-		/* 
-		 * 1. Check `add` and `remove` for contradicting descriptors 
-		 * 2. Create a new list of modules by removing `remove` from explicitly installed
-		 * 3. Join the `add` list to this new list
-		 * 4. Run this list through the resolver
-		 * 5. Diff the result with the existing list
-		 * 6. Apply changes from diff
-		 */
-
-		let new_top_depends = {
-			let mut new_top_depends = self.inner.installed_modules.iter()
-				.filter(|m| m.install_reason == InstallReason::Explicit)
-				.filter(|m| {
-					for rem in &self.remove {
-						if ckan::does_module_match_descriptor(&m.identifier, rem) {
-							return false
-						}
-					}
-					true
-				})
-				.cloned()
-				.map(|r| ckan::ModuleDescriptor::new(
-					r.identifier.identifier,
-					match r.version_reason {
-						ModuleVersionReason::Explicit => ckan::ModVersionBounds::Explicit(r.identifier.version),
-						ModuleVersionReason::Infered => ckan::ModVersionBounds::Any,
-					}
-				))
-				.collect::<Vec<_>>();
-			
-			new_top_depends.append(&mut self.add.clone());
-			
-			new_top_depends
-		};
-
-		// let mut resolver = RelationshipResolver::new(compatible_ksp_versions, requirements, &db);
-
-		// loop {
-		// 	let process = resolver.step();
-		// 	match process {
-		// 		RelationshipProcess::Incomplete => {},
-		// 		RelationshipProcess::MultipleProviders(decision) => {
-		// 			let mut options = decision.get_options().iter().collect::<Vec<_>>();
-		// 			options.sort(); /* Sort to get a consistent result when testing */
-		// 			let dec = options[0].clone();
-		// 			eprintln!("Adding \"{}\" to decisions from list {:?}", dec, decision.get_options());
-		// 			let d = match decision.select(dec) {
-		// 				MutlipleProvidersDecisionValidation::Valid(d) => d,
-		// 				MutlipleProvidersDecisionValidation::Invalid(_) => panic!("Invalid decision"),
-		// 			};
-		// 			resolver.add_decision(d);
-		// 		},
-		// 		RelationshipProcess::Halt => {
-		// 			eprintln!("Resolver halted, printing failures:");
-		// 			for fail in resolver.get_failed_resolves() {
-		// 				match fail {
-		// 					FailedResolve::ModulesConflict(l, r) => eprintln!("Conflict\n\t{:?}\n\t\t{:?}\n\t\t{:?}\n\t{:?}\n\t\t{:?}\n\t\t{:?}", &l.identifier, &l.version, &l.conflicts, &r.identifier, &r.version, &r.conflicts),
-		// 					f => eprintln!("{:?}", f),
-		// 				}
-		// 			}
-		// 			panic!("Resolver Halted");
-		// 		},
-		// 		RelationshipProcess::Complete => { break; },
-		// 	}
-		// }
-
-		todo!();
+		match resolver.attempt_resolve() {
+			dependency_resolver::ResolverStatus::Complete(mods) => {
+				/* TODO: Install Modules */
+				TransactionStatus::Ok(self.inner)
+			},
+			dependency_resolver::ResolverStatus::DecisionsRequired(decs) => {
+				TransactionStatus::DecisionsRequired(self, decs)
+			},
+			dependency_resolver::ResolverStatus::Failed(err) => {
+				TransactionStatus::Failed(self.inner, err)
+			},
+		}
 	}
 
 	pub fn cancel(self) -> Profile {
@@ -133,12 +61,12 @@ impl ProfileTransaction {
 }
 
 pub struct Profile {
-	pub compatible_ksp_versions: HashSet<ckan::KspVersion>,
-	installed_modules: Vec<ModuleReason>,
+	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
+	wanted: Vec<dependency_resolver::InstallRequirement>,
 }
 
 impl Profile {
-	pub fn start_transaction(self) -> ProfileTransaction {
-		ProfileTransaction::new(self)
+	pub fn start_transaction(self, metadb: &MetaDB) -> ProfileTransaction {
+		ProfileTransaction::new(self, metadb)
 	}
 }
