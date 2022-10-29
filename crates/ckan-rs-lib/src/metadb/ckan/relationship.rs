@@ -63,7 +63,7 @@ impl Relationship {
 	}
 }
 
-pub fn does_module_fulfill_relationship(module: &Ckan, relationship: &Relationship) -> bool {
+pub fn does_module_fulfill_relationship(module: &ModuleInfo, relationship: &Relationship) -> bool {
 	for desc in relationship.as_vec() {
 		if does_module_provide_descriptor(module, desc) { return true }
 	}
@@ -77,7 +77,7 @@ pub fn does_module_match_descriptor(identifier: &ModUniqueIdentifier, descriptor
 	descriptor.version.is_version_within(&identifier.version)
 }
 
-pub fn does_module_provide_descriptor(module: &Ckan, descriptor: &ModuleDescriptor) -> bool {
+pub fn does_module_provide_descriptor(module: &ModuleInfo, descriptor: &ModuleDescriptor) -> bool {
 	if module.unique_id.identifier != descriptor.name && !module.provides.iter().any(|m| m == &descriptor.name) {
 		return false
 	}

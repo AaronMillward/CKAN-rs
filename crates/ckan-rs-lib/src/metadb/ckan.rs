@@ -8,7 +8,7 @@ use serde::*;
 /// A `.ckan` file containing mod info
 /// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Ckan {
+pub struct ModuleInfo {
 	/* Required Fields */
 	pub spec_version: String,
 	pub unique_id: relationship::ModUniqueIdentifier,
@@ -47,33 +47,33 @@ pub struct Ckan {
 	pub resources: HashMap<String, String>,
 }
 
-impl std::hash::Hash for Ckan {
+impl std::hash::Hash for ModuleInfo {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.unique_id.hash(state);
 	}
 }
 
-impl std::cmp::Ord for Ckan {
+impl std::cmp::Ord for ModuleInfo {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		self.unique_id.cmp(&other.unique_id)
 	}
 }
 
-impl std::cmp::PartialOrd for Ckan {
+impl std::cmp::PartialOrd for ModuleInfo {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
 }
 
-impl std::cmp::PartialEq for Ckan {
+impl std::cmp::PartialEq for ModuleInfo {
 	fn eq(&self, other: &Self) -> bool {
 		self.unique_id == other.unique_id
 	}
 }
 
-impl std::cmp::Eq for Ckan {}
+impl std::cmp::Eq for ModuleInfo {}
 
-impl Ckan {
+impl ModuleInfo {
 	/// Checks if the given modules conflict with each other
 	pub fn do_modules_conflict(lhs: &Self, rhs: &Self) -> bool {
 		let mut conflicts = false;

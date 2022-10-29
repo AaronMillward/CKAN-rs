@@ -3,6 +3,7 @@
 //! The metadb is composed of .ckan modules defined by a [specification](https://github.com/KSP-CKAN/CKAN/blob/master/Spec.md)
 
 pub mod ckan;
+pub use ckan::ModuleInfo;
 
 mod generation;
 pub use generation::get_latest_archive;
@@ -18,16 +19,16 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MetaDB {
-	modules: HashSet<ckan::Ckan>,
+	modules: HashSet<ckan::ModuleInfo>,
 }
 
 impl MetaDB {
 	/// Returns all modules in the database unfiltered and unsorted
-	pub fn get_modules(&self) -> &HashSet<ckan::Ckan> {
+	pub fn get_modules(&self) -> &HashSet<ckan::ModuleInfo> {
 		&self.modules
 	}
 
-	pub fn get_from_identifier_and_version(&self, identifier: &str, version: &ckan::ModVersion) -> Option<&ckan::Ckan> {
+	pub fn get_from_identifier_and_version(&self, identifier: &str, version: &ckan::ModVersion) -> Option<&ckan::ModuleInfo> {
 		let unique = ckan::ModUniqueIdentifier {
 			identifier: identifier.to_string(),
 			version: version.clone(),

@@ -164,7 +164,7 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 	Ok(relationships)
 }
 
-impl Ckan {
+impl ModuleInfo {
 	pub fn read_from_json(v: serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::ParseError as ParseError;
 		use serde_json::*;
@@ -192,7 +192,7 @@ impl Ckan {
 		/* FIXME: Lots of panics and error ignorance */
 
 		let obj = &v;
-		Ok( Ckan {
+		Ok( ModuleInfo {
 			spec_version: {
 				match obj.get("spec_version").ok_or_else(|| ParseError("`spec_version` is missing".to_string()))? {
 					Value::Number(v) => v.to_string(),

@@ -88,7 +88,7 @@ pub fn get_version_bounds_for_node(graph: &DependencyGraph, src: NodeIndex) -> O
 /// Clears `src` outbound edges and replaces them with edges from `module`
 /// # Panics
 /// - If `src` is not a `Candidate` or `Stub`.
-pub fn set_node_as_module(graph: &mut DependencyGraph, src: NodeIndex, module: &ckan::Ckan) {
+pub fn set_node_as_module(graph: &mut DependencyGraph, src: NodeIndex, module: &ckan::ModuleInfo) {
 	/* TODO: Check if any requirements actually changed. without this check cyclic dependencies will repeatedly set each other as dirty */
 	let id = if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &graph[src] {
 		name.clone()
@@ -106,7 +106,7 @@ pub fn set_node_as_module(graph: &mut DependencyGraph, src: NodeIndex, module: &
 /// - Sets the `dirty` flag on any candidate nodes affected.
 /// - Does not remove existing edges of the node. (See `clear_nodes_requirements()`)
 /// - Is not concerned with the type of node it is being applied to.
-pub fn add_node_edges_from_module(graph: &mut DependencyGraph, module: &ckan::Ckan, src: NodeIndex) {
+pub fn add_node_edges_from_module(graph: &mut DependencyGraph, module: &ckan::ModuleInfo, src: NodeIndex) {
 	for req in &module.depends {
 		match req {
 			Relationship::AnyOf(r) => {

@@ -25,7 +25,7 @@ impl MetaDB {
 
 		Ok(Self {
 			modules: {
-				let mut v = HashSet::<Ckan>::new();
+				let mut v = HashSet::<ModuleInfo>::new();
 
 				let compiled_schema = if do_validation {
 					Some(
@@ -62,7 +62,7 @@ impl MetaDB {
 					}
 
 					{
-						let ckan : Ckan = match Ckan::read_from_json(json) {
+						let ckan : ModuleInfo = match ModuleInfo::read_from_json(json) {
 							Ok(v) => v,
 							Err(e) => {
 								eprintln!("Couldn't process entry {} in metadb: {}", i, e);

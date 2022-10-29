@@ -1,14 +1,14 @@
 use crate::metadb::ckan;
 use crate::metadb::MetaDB;
 
-pub mod dependency_resolver;
+pub mod relationship_resolver;
 
 /* TODO: Install Reason */
 
 pub enum TransactionStatus<'db> {
 	Ok(Profile),
-	DecisionsRequired(ProfileTransaction<'db>, Vec<dependency_resolver::DecisionInfo>),
-	Failed(Profile, Vec<(String, dependency_resolver::DetermineModuleError)>),
+	DecisionsRequired(ProfileTransaction<'db>, Vec<relationship_resolver::DecisionInfo>),
+	Failed(Profile, Vec<(String, relationship_resolver::DetermineModuleError)>),
 }
 
 pub struct ProfileTransaction<'db> {
@@ -34,20 +34,20 @@ impl<'db> ProfileTransaction<'db> {
 
 	pub fn commit(self) -> TransactionStatus<'db> {
 		/* TODO: Less brute force approach */
-		let mut resolver = dependency_resolver::RelationshipResolver::new(self.metadb, &self.inner.wanted, None, self.inner.compatible_ksp_versions.clone());
+		let mut resolver = relationship_resolver::RelationshipResolver::new(self.metadb, &self.inner.wanted, None, self.inner.compatible_ksp_versions.clone());
 		for d in &self.decisions {
 			resolver.add_decision(d);
 		}
 
 		match resolver.attempt_resolve() {
-			dependency_resolver::ResolverStatus::Complete(mods) => {
+			relationship_resolver::ResolverStatus::Complete(mods) => {
 				/* TODO: Install Modules */
 				TransactionStatus::Ok(self.inner)
 			},
-			dependency_resolver::ResolverStatus::DecisionsRequired(decs) => {
+			relationship_resolver::ResolverStatus::DecisionsRequired(decs) => {
 				TransactionStatus::DecisionsRequired(self, decs)
 			},
-			dependency_resolver::ResolverStatus::Failed(err) => {
+			relationship_resolver::ResolverStatus::Failed(err) => {
 				TransactionStatus::Failed(self.inner, err)
 			},
 		}
@@ -60,7 +60,7 @@ impl<'db> ProfileTransaction<'db> {
 
 pub struct Profile {
 	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
-	wanted: Vec<dependency_resolver::InstallRequirement>,
+	wanted: Vec<relationship_resolver::InstallRequirement>,
 }
 
 impl Profile {
