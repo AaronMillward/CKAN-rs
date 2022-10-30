@@ -145,6 +145,12 @@ impl std::hash::Hash for ModVersion {
 	}
 }
 
+impl std::fmt::Display for ModVersion {
+	fn fmt(&self, f: &mut __private::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}:{}", self.epoch, self.mod_version)
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;

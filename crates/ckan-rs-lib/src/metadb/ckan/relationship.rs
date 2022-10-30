@@ -28,6 +28,12 @@ impl std::cmp::PartialOrd for ModUniqueIdentifier {
 	}
 }
 
+impl std::fmt::Display for ModUniqueIdentifier {
+	fn fmt(&self, f: &mut __private::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}-{}", self.identifier, self.version)
+	}
+}
+
 pub type ModVersionBounds = VersionBounds<ModVersion>;
 
 /// Describes a module using an identifier and version requirement.
