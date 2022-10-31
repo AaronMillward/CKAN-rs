@@ -2,9 +2,18 @@
 //! 
 //! This is done through an interface `ModuleDeployment`.
 
+pub enum DeploymentError {
+	UndeployableModule,
+
+}
+
+pub enum DeploymentMethod {
+	HardLink,
+}
+
 pub trait ModuleDeployment {
-	fn deploy_module(game_dir: &std::path::Path, module: crate::metadb::ModuleInfo) -> crate::Result<()>;
-	fn retract_module(game_dir: &std::path::Path, module: crate::metadb::ModuleInfo) -> crate::Result<()>;
+	fn deploy_module(options: &crate::CkanRsOptions, game_dir: &std::path::Path, module: &crate::metadb::ModuleInfo) -> Result<(), DeploymentError>;
+	fn retract_module(options: &crate::CkanRsOptions, game_dir: &std::path::Path, module: &crate::metadb::ModuleInfo) -> Result<(), DeploymentError>;
 }
 
 mod hardlink_deployment;

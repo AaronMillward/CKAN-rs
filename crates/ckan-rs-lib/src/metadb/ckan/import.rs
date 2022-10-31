@@ -5,54 +5,54 @@ use try_map::FallibleMapExt;
 use super::*;
 
 fn get_one_or_many_string(obj: &serde_json::Value, key: &str) -> crate::Result<Vec<String>> {
-	let v = obj.get(key).ok_or_else(|| crate::Error::ParseError(format!("key {} missing", key)))?;
+	let v = obj.get(key).ok_or_else(|| crate::Error::Parse(format!("key {} missing", key)))?;
 	match v {
 		serde_json::Value::Array(_) => Ok(serde_json::from_value(v.to_owned())?),
 		serde_json::Value::String(v) => {
 			Ok(vec![v.to_owned()])
 		},
-		_ => Err(crate::Error::ParseError(format!("key {} is not a string or array", key))),
+		_ => Err(crate::Error::Parse(format!("key {} is not a string or array", key))),
 	}
 }
 
 impl install::InstallDirective {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Vec<Self>> {
-		use crate::Error::ParseError;
+		use crate::Error::Parse;
 		use install::*;
 
 		let mut directives = Vec::<Self>::new();
 
 		if !v.is_array() {
-			return Err(ParseError("value must be an array".to_string()));
+			return Err(Parse("value must be an array".to_string()));
 		}
 		for obj in v.as_array().unwrap() {
 			if !obj.is_object() {
-				return Err(ParseError("array elements must be objects".to_string()));
+				return Err(Parse("array elements must be objects".to_string()));
 			}
 			let directive = InstallDirective::new(
 				{
 					if let Some(f) = obj.get("file") {
 						SourceDirective::File(
-							f.as_str().ok_or_else(|| ParseError("file source directive must be a string".to_string()))?.to_string()
+							f.as_str().ok_or_else(|| Parse("file source directive must be a string".to_string()))?.to_string()
 						)
 					} else if let Some(f) = obj.get("find") {
 						SourceDirective::Find(
-							f.as_str().ok_or_else(|| ParseError("find source directive must be a string".to_string()))?.to_string()
+							f.as_str().ok_or_else(|| Parse("find source directive must be a string".to_string()))?.to_string()
 						)
 					} else if let Some(f) = obj.get("find_regexp") {
 						SourceDirective::FindRegExp(
-							f.as_str().ok_or_else(|| ParseError("find_regexp source directive must be a string".to_string()))?.to_string()
+							f.as_str().ok_or_else(|| Parse("find_regexp source directive must be a string".to_string()))?.to_string()
 						)
 					} else {
-						return Err(ParseError("install has no valid source directive".to_string()));
+						return Err(Parse("install has no valid source directive".to_string()));
 					}
 				},
 
 				{
 					if let Some(f) = obj.get("install_to") {
-						f.as_str().ok_or_else(|| ParseError("destination directive must be a string".to_string()))?.to_string()
+						f.as_str().ok_or_else(|| Parse("destination directive must be a string".to_string()))?.to_string()
 					} else {
-						return Err(ParseError("install has no destination directive".to_string()));
+						return Err(Parse("install has no destination directive".to_string()));
 					}
 				},
 
@@ -60,7 +60,7 @@ impl install::InstallDirective {
 					let mut add = Vec::<OptionalDirective>::new();
 					/* The spec doesn't mention specifically but I'm pretty sure each directive can only turn up once */
 					if let Some(f) = obj.get("as") {
-						add.push(OptionalDirective::As(f.as_str().ok_or_else(|| ParseError("as directive must be a string".to_string()))?.to_string()));
+						add.push(OptionalDirective::As(f.as_str().ok_or_else(|| Parse("as directive must be a string".to_string()))?.to_string()));
 					}
 					if obj.get("filter").is_some() {
 						add.push(OptionalDirective::Filter(get_one_or_many_string(obj, "filter")?));
@@ -75,7 +75,7 @@ impl install::InstallDirective {
 						add.push(OptionalDirective::IncludeOnlyRegExp(get_one_or_many_string(obj, "include_only_regexp")?));
 					}
 					if let Some(f) = obj.get("find_matches_files") {
-						add.push(OptionalDirective::FindMatchesFiles(f.as_bool().ok_or_else(|| ParseError("find_matches_files directive must be a bool".to_string()))?));
+						add.push(OptionalDirective::FindMatchesFiles(f.as_bool().ok_or_else(|| Parse("find_matches_files directive must be a bool".to_string()))?));
 					}
 
 					add
@@ -90,23 +90,23 @@ impl install::InstallDirective {
 
 impl mod_version::ModVersion {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
-		use crate::Error::ParseError;
+		use crate::Error::Parse;
 		v.as_str()
-			.ok_or_else(|| ParseError("version must be a string".to_string()))
+			.ok_or_else(|| Parse("version must be a string".to_string()))
 			.and_then(|s|
-				ModVersion::new(s).map_err(|_| ParseError("version string can't be read as a version".to_string()))
+				ModVersion::new(s).map_err(|_| Parse("version string can't be read as a version".to_string()))
 			)
 	}
 }
 
 impl relationship::ModuleDescriptor {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
-		use crate::Error::ParseError;
+		use crate::Error::Parse;
 		Ok(relationship::ModuleDescriptor::new(
 			{
 				v.get("name")
-					.ok_or_else(|| ParseError("JSON has no name field".to_string()))?
-					.as_str().ok_or_else(|| ParseError("name must be a string".to_string()))?.to_string()
+					.ok_or_else(|| Parse("JSON has no name field".to_string()))?
+					.as_str().ok_or_else(|| Parse("name must be a string".to_string()))?.to_string()
 			},
 			relationship::ModVersionBounds::new(
 				v.get("version").try_map(ModVersion::from_json)?,
@@ -118,7 +118,7 @@ impl relationship::ModuleDescriptor {
 }
 
 pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relationship::Relationship>> {
-	use crate::Error::ParseError;
+	use crate::Error::Parse;
 	use relationship::*;
 
 	let mut relationships = Vec::<Relationship>::new();
@@ -138,27 +138,27 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 										ships.push(val);
 									}
 								} else {
-									return Err(ParseError("any_of array must contain only objects".to_string()));
+									return Err(Parse("any_of array must contain only objects".to_string()));
 								}
 							}
 							Relationship::AnyOf(ships)
 						} else {
-							return Err(ParseError("any_of constraint must be an array".to_string()));
+							return Err(Parse("any_of constraint must be an array".to_string()));
 						}
 					/* single */
 					} else if obj.get("name").is_some() {
 						Relationship::One(ModuleDescriptor::from_json(elem)?)
 					} else {
-						return Err(ParseError("relationship object must be a relationship or any_of constraint".to_string()));
+						return Err(Parse("relationship object must be a relationship or any_of constraint".to_string()));
 					}
 				};
 				relationships.push(relationship);
 			} else {
-				return Err(ParseError("array elements must be objects".to_string()));
+				return Err(Parse("array elements must be objects".to_string()));
 			}
 		}
 	} else {
-		return Err(ParseError("must be array".to_string()));
+		return Err(Parse("must be array".to_string()));
 	}
 
 	Ok(relationships)
@@ -166,13 +166,13 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 
 impl ModuleInfo {
 	pub fn read_from_json(v: serde_json::Value) -> crate::Result<Self> {
-		use crate::Error::ParseError as ParseError;
+		use crate::Error::Parse;
 		use serde_json::*;
 
 		fn get_val<T>(object: &Value, key: &str) -> crate::Result<T>
 		where T: DeserializeOwned {
 			object.get(key)
-				.ok_or_else(|| ParseError(format!("Failed to get key: {}", key)))
+				.ok_or_else(|| Parse(format!("Failed to get key: {}", key)))
 				.and_then(|v| serde_json::from_value::<T>(v.to_owned())
 					.map_err(crate::Error::from)
 				)
@@ -194,17 +194,17 @@ impl ModuleInfo {
 		let obj = &v;
 		Ok( ModuleInfo {
 			spec_version: {
-				match obj.get("spec_version").ok_or_else(|| ParseError("`spec_version` is missing".to_string()))? {
+				match obj.get("spec_version").ok_or_else(|| Parse("`spec_version` is missing".to_string()))? {
 					Value::Number(v) => v.to_string(),
 					Value::String(v) => v.to_owned(),
-					_ => return Err(ParseError("invalid type".to_string())),
+					_ => return Err(Parse("invalid type".to_string())),
 				}
 			},
 			unique_id: relationship::ModUniqueIdentifier {
 				identifier: get_val(obj, "identifier")?,
 				version: obj.get("version")
-					.ok_or_else(|| ParseError("`version` is missing".to_string()))
-					.and_then(|v| v.as_str().ok_or_else(|| ParseError("`version` must be a string".to_string())))
+					.ok_or_else(|| Parse("`version` is missing".to_string()))
+					.and_then(|v| v.as_str().ok_or_else(|| Parse("`version` must be a string".to_string())))
 					.and_then(ModVersion::new)
 					?,
 			},
@@ -241,10 +241,10 @@ impl ModuleInfo {
 								} else if v == "development" {
 									ReleaseStatus::Development
 								} else {
-									return Err(ParseError("unknown release_status".to_string()))
+									return Err(Parse("unknown release_status".to_string()))
 								}
 							},
-							_ => return Err(ParseError("invalid type, expected string for release_status".to_string())),
+							_ => return Err(Parse("invalid type, expected string for release_status".to_string())),
 						}
 					},
 					None => ReleaseStatus::Stable,
@@ -257,7 +257,7 @@ impl ModuleInfo {
 					get_val_optional::<String>(obj, "ksp_version_max").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
 				)?
 			},
-			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").cloned().unwrap_or(Value::Bool(true))).map_err(|_| ParseError("ksp_version_strict must be a boolean".to_string()))?,
+			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").cloned().unwrap_or(Value::Bool(true))).map_err(|_| Parse("ksp_version_strict must be a boolean".to_string()))?,
 			tags: get_one_or_many_string(obj, "tags").ok(), /* This does work */
 			localizations: get_one_or_many_string(obj, "localizations").ok(),
 			download_size: get_val_optional(obj, "download_size")?,

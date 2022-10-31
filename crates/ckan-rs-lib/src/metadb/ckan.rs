@@ -101,6 +101,8 @@ pub use mod_version::ModVersion;
 
 mod install;
 pub use install::InstallDirective;
+pub use install::SourceDirective;
+pub use install::OptionalDirective;
 
 mod release;
 pub use release::ReleaseStatus;

@@ -19,9 +19,9 @@ pub enum OptionalDirective {
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallDirective {
-	source: SourceDirective,
-	install_to: String,
-	additional: Vec<OptionalDirective>,
+	pub source: SourceDirective,
+	pub install_to: String,
+	pub additional: Vec<OptionalDirective>,
 } impl InstallDirective {
 	pub fn new(source: SourceDirective, install_to: String, additional: Vec<OptionalDirective>) -> Self {
 		Self { source, install_to, additional }

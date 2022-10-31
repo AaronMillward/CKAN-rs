@@ -1,6 +1,6 @@
 use super::*;
 use ckan::*;
-use crate::Error::ParseError;
+use crate::Error::Parse;
 
 /// Gets the lastest MetaDB .tar.gz archive as bytes
 pub fn get_latest_archive() -> crate::Result<Vec<u8>> {
@@ -36,7 +36,7 @@ impl MetaDB {
 				};
 
 				for (i, e) in archive.entries()?.enumerate() {
-					let mut e = e.map_err(|_| ParseError("tar archive entries unreadable".to_string()))?;
+					let mut e = e.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
 
 					if e.size() == 0 {
 						continue;
