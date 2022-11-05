@@ -1,16 +1,30 @@
 pub struct CkanRsOptions {
-	cache_dir: std::path::PathBuf,
+	download_dir: std::path::PathBuf,
+	deployment_dir: std::path::PathBuf,
 	https_only: bool,
 }
 
 impl CkanRsOptions {
-	pub fn cache_dir(&self) -> &std::path::PathBuf {
-		&self.cache_dir
+	pub fn download_dir(&self) -> &std::path::PathBuf {
+		&self.download_dir
 	}
 	/// returns if the directory is valid or not.
-	pub fn set_cache_dir(&mut self, cache_dir: std::path::PathBuf) -> bool {
-		if cache_dir.is_dir() {
-			self.cache_dir = cache_dir;
+	pub fn set_download_dir(&mut self, download_dir: std::path::PathBuf) -> bool {
+		if download_dir.is_dir() {
+			self.download_dir = download_dir;
+			true
+		} else {
+			false
+		}
+	}
+
+	pub fn deployment_dir(&self) -> &std::path::PathBuf {
+		&self.download_dir
+	}
+	/// returns if the directory is valid or not.
+	pub fn set_deployment_dir(&mut self, deployment_dir: std::path::PathBuf) -> bool {
+		if deployment_dir.is_dir() {
+			self.deployment_dir = deployment_dir;
 			true
 		} else {
 			false

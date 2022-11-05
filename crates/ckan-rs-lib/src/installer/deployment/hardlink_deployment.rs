@@ -5,6 +5,7 @@ use crate::metadb::ckan::{SourceDirective, InstallDirective, OptionalDirective};
 pub struct HardLinkInstaller;
 
 impl super::ModuleDeployment for HardLinkInstaller {
+	
 	fn deploy_module(options: &crate::CkanRsOptions, game_dir: &std::path::Path, module: &crate::metadb::ModuleInfo) -> Result<(), super::DeploymentError> {
 		if module.install.is_empty() {
 			/* If no install sections are provided, a CKAN client must find the top-most directory in the archive that matches the module identifier, and install that with a target of GameData. In other words, the default install section is: */

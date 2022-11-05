@@ -27,7 +27,7 @@ pub fn get_module_content(cache_dir: &std::path::Path, module: &crate::metadb::c
 }
 
 /// Gets a modules content either by retrieving it from the cache or downloading it.
-pub async fn download_module_content(cache_dir: &std::path::Path, client: &reqwest::Client, module: &crate::metadb::ModuleInfo) -> Result<std::path::PathBuf, RetrievalError> {
+pub async fn download_or_get_module_content(download_directory: &std::path::Path, client: &reqwest::Client, module: &crate::metadb::ModuleInfo) -> Result<std::path::PathBuf, RetrievalError> {
 	if let Some(ct) = &module.download_content_type {
 		if ct != "application/zip" {
 			return Err(RetrievalError::UnsupportedContentType);
@@ -35,8 +35,8 @@ pub async fn download_module_content(cache_dir: &std::path::Path, client: &reqwe
 	} else {
 		return Err(RetrievalError::ModuleMissingDownloadFields);
 	}
-	
-	let download_path = cache_dir.with_file_name(module.unique_id.identifier.clone() + &module.unique_id.version.to_string());
+
+	let download_path = download_directory.join(module.unique_id.identifier.clone() + &module.unique_id.version.to_string());
 	if download_path.exists() {
 		return Ok(download_path)
 	}
