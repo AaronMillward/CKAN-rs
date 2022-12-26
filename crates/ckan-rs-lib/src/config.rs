@@ -4,6 +4,16 @@ pub struct CkanRsOptions {
 	https_only: bool,
 }
 
+impl Default for CkanRsOptions {
+	fn default() -> Self {
+		Self {
+			download_dir: "/tmp/downloads".into(),
+			deployment_dir: "/tmp/deploy".into(),
+			https_only: true
+		}
+	}
+}
+
 impl CkanRsOptions {
 	pub fn download_dir(&self) -> &std::path::PathBuf {
 		&self.download_dir

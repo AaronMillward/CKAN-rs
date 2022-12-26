@@ -19,7 +19,8 @@ impl KspVersion {
 	/// 
 	/// # Examples
 	/// ```
-	/// assert!(is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2"))
+	/// use ckan_rs::metadb::ckan::KspVersion;
+	/// assert!(is_sub_version(&KspVersion::new("1.12"), &KspVersion::new("1.12.2")))
 	/// ```
 	pub fn is_sub_version(lhs: &KspVersion, rhs: &KspVersion) -> bool {
 		if lhs.name == "any" || rhs.name == "any" { return false }
