@@ -13,7 +13,7 @@ use crate::ModuleInfo;
 use crate::metadb::ckan::InstallDirective;
 use crate::metadb::ckan::SourceDirective;
 
-pub mod retrieval;
+pub mod download;
 pub mod content;
 pub mod deployment;
 use deployment::DeploymentMethod;
@@ -27,7 +27,7 @@ pub async fn install<D: DeploymentMethod>(options: &crate::CkanRsOptions, to_ins
 	for module in to_install {
 		/* TODO: to_install to also list the modules deployment method to allow per module deployment settings */
 		
-		retrieval::download_module_content(options.download_dir(), &client, module).await?;
+		download::download_module_content(options.download_dir(), &client, module).await?;
 		
 		// let install_instructions = get_install_instructions(module, deployment_path, game_dir)?;
 

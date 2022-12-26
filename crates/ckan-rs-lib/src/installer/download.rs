@@ -1,7 +1,7 @@
-//! Acquirement is when we take the module and download it's contents
+//! Downloads a modules content.
 
 #[derive(Debug)]
-pub enum RetrievalError {
+pub enum DownloadError {
 	/// Given module cannot be downloaded as it has no download information.
 	ModuleMissingDownloadFields,
 	/// There's no need to download this module it's already in the downloads cache.
@@ -10,20 +10,20 @@ pub enum RetrievalError {
 	IO(std::io::Error),
 }
 
-crate::error_wrapper!(RetrievalError, RetrievalError::Reqwest, reqwest::Error);
-crate::error_wrapper!(RetrievalError, RetrievalError::IO     , std::io::Error);
+crate::error_wrapper!(DownloadError, DownloadError::Reqwest, reqwest::Error);
+crate::error_wrapper!(DownloadError, DownloadError::IO     , std::io::Error);
 
 // Downloads a modules content.
-pub async fn download_module_content(download_directory: &std::path::Path, client: &reqwest::Client, module: &crate::metadb::ModuleInfo) -> Result<std::path::PathBuf, RetrievalError> {
+pub async fn download_module_content(download_directory: &std::path::Path, client: &reqwest::Client, module: &crate::metadb::ModuleInfo) -> Result<std::path::PathBuf, DownloadError> {
 	let download_path = download_directory.join(module.unique_id.identifier.clone() + &module.unique_id.version.to_string());
 	if !download_path.exists() {
-		return Err(RetrievalError::ContentAlreadyDownloaded)
+		return Err(DownloadError::ContentAlreadyDownloaded)
 	}
 	
 	let url = if let Some(url) = &module.download {
 		url
 	} else {
-		return Err(RetrievalError::ModuleMissingDownloadFields)
+		return Err(DownloadError::ModuleMissingDownloadFields)
 	};
 	
 	let mut download_file = tokio::fs::File::create(&download_path).await?;

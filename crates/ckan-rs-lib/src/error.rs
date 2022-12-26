@@ -8,10 +8,8 @@ pub enum Error {
 	Parse(String),
 	Validation(String),
 	InvalidSelection,
-	Acquirement(crate::installer::retrieval::RetrievalError),
+	Download(crate::installer::download::DownloadError),
 }
-
-
 
 impl std::fmt::Display for Error {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,4 +29,4 @@ macro_rules! error_wrapper(
 error_wrapper!(Error, Error::Reqwest  , reqwest::Error);
 error_wrapper!(Error, Error::IO       , std::io::Error);
 error_wrapper!(Error, Error::SerdeJSON, serde_json::Error);
-error_wrapper!(Error, Error::Acquirement, crate::installer::retrieval::RetrievalError);
+error_wrapper!(Error, Error::Download, crate::installer::download::DownloadError);
