@@ -24,6 +24,8 @@ pub async fn install<D: DeploymentMethod>(options: &crate::CkanRsOptions, to_ins
 		.https_only(options.https_only())
 		.build()?;
 	
+	let mut status = Vec::<(&crate::metadb::ckan::ModUniqueIdentifier, Result<(), deployment::DeploymentError>)>::new();
+
 	for module in to_install {
 		/* TODO: to_install to also list the modules deployment method to allow per module deployment settings */
 		
@@ -31,7 +33,7 @@ pub async fn install<D: DeploymentMethod>(options: &crate::CkanRsOptions, to_ins
 		
 		// let install_instructions = get_install_instructions(module, deployment_path, game_dir)?;
 
-		D::deploy_content(options, game_dir, module);
+		status.push((&module.unique_id, D::deploy_content(options, game_dir, module)));
 	}
 
 	Ok(())

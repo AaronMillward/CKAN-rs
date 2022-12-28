@@ -23,12 +23,12 @@ pub fn get_module_content(options: &crate::CkanRsOptions, module: &crate::metadb
 	if let Some(ct) = &module.download_content_type {
 		let download_path = options.download_dir().join(module.unique_id.identifier.clone() + &module.unique_id.version.to_string());
 		if ct == "application/zip" {
-			return Ok(Box::new(ZipContent::new(&download_path)?))
+			Ok(Box::new(ZipContent::new(&download_path)?))
 		} else {
-			return Err(ContentError::UnsupportedContentType);
+			Err(ContentError::UnsupportedContentType)
 		}
 	} else {
-		return Err(ContentError::RequiredFieldMissing)
+		Err(ContentError::RequiredFieldMissing)
 	}
 }
 
