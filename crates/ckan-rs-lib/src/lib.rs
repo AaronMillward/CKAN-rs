@@ -9,6 +9,6 @@ pub use metadb::ckan::ModuleInfo;
 pub mod config;
 pub use config::CkanRsOptions;
 
-pub mod manager;
-
 pub mod installer;
+pub mod relationship_resolver;
+pub mod game_instance;

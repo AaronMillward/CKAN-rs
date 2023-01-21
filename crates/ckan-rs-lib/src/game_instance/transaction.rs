@@ -1,26 +1,21 @@
-use crate::metadb::ckan;
-use crate::metadb::MetaDB;
-
-pub mod relationship_resolver;
-
-/* TODO: Install Reason */
+use super::*;
 
 pub enum TransactionStatus<'db> {
-	Ok(Profile),
-	DecisionsRequired(ProfileTransaction<'db>, Vec<relationship_resolver::DecisionInfo>),
-	Failed(Profile, Vec<(String, relationship_resolver::DetermineModuleError)>),
+	Ok(GameInstance),
+	DecisionsRequired(GameInstanceTransaction<'db>, Vec<relationship_resolver::DecisionInfo>),
+	Failed(GameInstance, Vec<(String, relationship_resolver::DetermineModuleError)>),
 }
 
-pub struct ProfileTransaction<'db> {
+pub struct GameInstanceTransaction<'db> {
 	decisions: Vec<String>,
 
 	metadb: &'db MetaDB,
 
-	inner: Profile,
+	inner: GameInstance,
 }
 
-impl<'db> ProfileTransaction<'db> {
-	pub fn new(profile: Profile, metadb: &'db MetaDB) -> ProfileTransaction {
+impl<'db> GameInstanceTransaction<'db> {
+	pub fn new(profile: GameInstance, metadb: &'db MetaDB) -> GameInstanceTransaction {
 		Self {
 			inner: profile,
 			decisions: Default::default(),
@@ -53,18 +48,7 @@ impl<'db> ProfileTransaction<'db> {
 		}
 	}
 
-	pub fn cancel(self) -> Profile {
+	pub fn cancel(self) -> GameInstance {
 		self.inner
-	}
-}
-
-pub struct Profile {
-	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
-	wanted: Vec<relationship_resolver::InstallRequirement>,
-}
-
-impl Profile {
-	pub fn start_transaction(self, metadb: &MetaDB) -> ProfileTransaction {
-		ProfileTransaction::new(self, metadb)
 	}
 }
