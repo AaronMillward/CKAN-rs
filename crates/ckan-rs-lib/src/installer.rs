@@ -10,30 +10,48 @@ use std::path::PathBuf;
 use std::path::Path;
 
 use crate::ModuleInfo;
-use crate::metadb::ckan::InstallDirective;
 use crate::metadb::ckan::SourceDirective;
 
 pub mod download;
 pub mod content;
-pub mod deployment;
-use deployment::DeploymentMethod;
 
-/* TODO: `to_install` should be a two-dimensional array to handle install order */
-pub async fn install<D: DeploymentMethod>(options: &crate::CkanRsOptions, to_install: &[ModuleInfo], game_dir: &std::path::Path) -> crate::Result<()> {
-	let client = reqwest::Client::builder()
-		.https_only(options.https_only())
-		.build()?;
-	
-	let mut status = Vec::<(&crate::metadb::ckan::ModUniqueIdentifier, Result<(), deployment::DeploymentError>)>::new();
+#[derive(Debug)]
+pub enum InstallError {
+	MissingContent,
+	HardLink(std::io::Error),
+	Copy(std::io::Error),
+}
 
-	for module in to_install {
-		/* TODO: to_install to also list the modules deployment method to allow per module deployment settings */
-		
-		download::download_module_content(options.download_dir(), &client, module).await?;
-		
-		// let install_instructions = get_install_instructions(module, deployment_path, game_dir)?;
+fn hardlink(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), InstallError> {
+	std::fs::hard_link(source, destination).map_err(InstallError::HardLink)
+}
 
-		status.push((&module.unique_id, D::deploy_content(options, game_dir, module)));
+fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), InstallError> {
+	std::fs::copy(source, destination).map(|_|()).map_err(InstallError::Copy)
+}
+
+pub async fn install_module(options: &crate::CkanRsOptions, instance: &mut crate::game_instance::GameInstance, module: &ModuleInfo) -> Result<(), InstallError> {
+	let path = content::get_module_deployment_path(options, &module.unique_id);
+	if !path.exists() {
+		return Err(InstallError::MissingContent)
+	}
+
+	let install_instructions = get_install_instructions(module, path, instance.game_dir()).unwrap();
+
+	for (source, destination) in install_instructions {
+		/* TODO: Fallback InstallMethods */
+		let tracked = instance.tracked.get_file(&destination.to_string_lossy());
+		if let Some(tracked) = tracked {
+			match tracked.get_install_method() {
+				crate::game_instance::filetracker::InstallMethod::Default => hardlink(source, destination)?,
+				crate::game_instance::filetracker::InstallMethod::HardLink => hardlink(source, destination)?,
+				crate::game_instance::filetracker::InstallMethod::Copy => copy(source, destination)?,
+				crate::game_instance::filetracker::InstallMethod::Block => continue,
+			}
+		} else {
+			hardlink(&source, &destination)?;
+			instance.tracked.add_file(destination.to_string_lossy().to_string(), crate::game_instance::filetracker::InstallMethod::Default)
+		}
 	}
 
 	Ok(())

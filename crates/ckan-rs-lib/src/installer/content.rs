@@ -15,44 +15,29 @@ pub enum ContentError {
 crate::error_wrapper!(ContentError, ContentError::IO, std::io::Error);
 crate::error_wrapper!(ContentError, ContentError::Zip, zip::result::ZipError);
 
-pub trait Content {
-	fn copy_to(&mut self, dir: &std::path::Path) -> Result<(), ContentError>;
+pub fn get_module_deployment_path(options: &crate::CkanRsOptions, id: &crate::metadb::ckan::ModUniqueIdentifier) -> std::path::PathBuf {
+	options.deployment_dir().join(id.identifier.clone() + &id.version.to_string())
 }
 
-pub fn get_module_content(options: &crate::CkanRsOptions, module: &crate::metadb::ModuleInfo) -> Result<Box<dyn Content>, ContentError> {
+pub fn extract_content_to_deployment(options: &crate::CkanRsOptions, module: &crate::metadb::ModuleInfo) -> Result<(), ContentError> {
 	if let Some(ct) = &module.download_content_type {
-		let download_path = options.download_dir().join(module.unique_id.identifier.clone() + &module.unique_id.version.to_string());
 		if ct == "application/zip" {
-			Ok(Box::new(ZipContent::new(&download_path)?))
+			let download_path = super::download::get_module_download_path(options, &module.unique_id);
+			let deploy_path = get_module_deployment_path(options, &module.unique_id);
+			let mut zip = std::fs::File::open(download_path)
+				.map_err(ContentError::IO)
+				.and_then(|f|
+					zip::ZipArchive::new(f).map_err(ContentError::Zip)
+				)?;
+			
+			match zip.extract(deploy_path) {
+				Ok(_) => Ok(()),
+				Err(_) => todo!(), /* TODO: Clear left over files and return error */
+			}
 		} else {
 			Err(ContentError::UnsupportedContentType)
 		}
 	} else {
 		Err(ContentError::RequiredFieldMissing)
-	}
-}
-
-pub struct ZipContent {
-	archive: zip::ZipArchive<std::fs::File>,
-}
-
-impl ZipContent {
-	pub fn new(content: &std::path::Path) -> Result<ZipContent, ContentError> {
-		let f = std::fs::File::open(content)?;
-		let archive = zip::ZipArchive::new(f)?;
-		Ok(ZipContent { archive })
-	}
-}
-
-impl Content for ZipContent {
-	fn copy_to(&mut self, dir: &std::path::Path) -> Result<(), ContentError>{
-		self.archive.extract(dir).map_err(ContentError::FailedToExtract)?;
-		/* 
-			TODO:
-			XXX:
-			According to zip an error from extract can leave the directory in an invalid state
-			I don't really want to "sudo rm -rf /" without the user so this error can ride all the way up.
-		*/
-		Ok(())
 	}
 }

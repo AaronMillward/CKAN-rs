@@ -29,7 +29,7 @@ impl<'db> GameInstanceTransaction<'db> {
 
 	pub fn commit(self) -> TransactionStatus<'db> {
 		/* TODO: Less brute force approach */
-		let mut resolver = relationship_resolver::RelationshipResolver::new(self.metadb, &self.inner.wanted, None, self.inner.compatible_ksp_versions.clone());
+		let mut resolver = relationship_resolver::RelationshipResolver::new(self.metadb, &self.inner.wanted_modules, None, self.inner.compatible_ksp_versions.clone());
 		for d in &self.decisions {
 			resolver.add_decision(d);
 		}

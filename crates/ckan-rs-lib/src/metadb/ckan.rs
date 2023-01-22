@@ -6,7 +6,7 @@ use serde::*;
 /* CKAN */
 
 /// A `.ckan` file containing mod info
-/// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead
+// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModuleInfo {
 	/* Required Fields */
