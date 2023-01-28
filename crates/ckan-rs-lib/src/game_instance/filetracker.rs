@@ -8,6 +8,7 @@ pub enum InstallMethod {
 	Block,
 }
 
+#[derive(Debug)]
 pub struct TrackedFile {
 	install_method: InstallMethod,
 }
@@ -16,6 +17,7 @@ impl TrackedFile {
 	pub fn get_install_method(&self) -> InstallMethod { self.install_method }
 }
 
+#[derive(Debug, Default)]
 pub struct TrackedFiles {
 	files: HashMap<String, TrackedFile>
 }

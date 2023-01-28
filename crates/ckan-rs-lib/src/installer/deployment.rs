@@ -1,23 +1,43 @@
-//! Deployment is the a phase in the installer where we take a module and actually add it to the game.
-//! 
-//! This is done through an interface `ModuleDeployment`.
+use std::path::Path;
 
 #[derive(Debug)]
 pub enum DeploymentError {
-	UndeployableModule,
-	ModuleArchiveDoesNotExist,
-	ContentError(super::content::ContentError),
-	IO(std::io::Error),
+	MissingContent,
+	HardLink(std::io::Error),
+	Copy(std::io::Error),
 }
 
-crate::error_wrapper!(DeploymentError, DeploymentError::IO, std::io::Error);
-crate::error_wrapper!(DeploymentError, DeploymentError::ContentError, super::content::ContentError);
-
-pub trait DeploymentMethod {
-	fn deploy_content(options: &crate::CkanRsOptions, game_dir: &std::path::Path, module: &crate::metadb::ModuleInfo) -> Result<(), DeploymentError>;
-	fn remove_content(options: &crate::CkanRsOptions, game_dir: &std::path::Path, module: &crate::metadb::ModuleInfo) -> Result<(), DeploymentError>;
+fn hardlink(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), DeploymentError> {
+	std::fs::hard_link(source, destination).map_err(DeploymentError::HardLink)
 }
 
-pub mod hardlink_deployment;
+fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), DeploymentError> {
+	std::fs::copy(source, destination).map(|_|()).map_err(DeploymentError::Copy)
+}
 
-/* TODO: Traditional copy based deployment */
+pub async fn deploy_module(options: &crate::CkanRsOptions, instance: &mut crate::game_instance::GameInstance, module: &crate::ModuleInfo) -> Result<(), DeploymentError> {
+	let path = super::content::get_module_deployment_path(options, &module.unique_id);
+	if !path.exists() {
+		return Err(DeploymentError::MissingContent)
+	}
+
+	let install_instructions = super::get_install_instructions(module, path, instance.game_dir()).unwrap();
+
+	for (source, destination) in install_instructions {
+		/* TODO: Fallback InstallMethods */
+		let tracked = instance.tracked.get_file(&destination.to_string_lossy());
+		if let Some(tracked) = tracked {
+			match tracked.get_install_method() {
+				crate::game_instance::filetracker::InstallMethod::Default => hardlink(source, destination)?,
+				crate::game_instance::filetracker::InstallMethod::HardLink => hardlink(source, destination)?,
+				crate::game_instance::filetracker::InstallMethod::Copy => copy(source, destination)?,
+				crate::game_instance::filetracker::InstallMethod::Block => continue,
+			}
+		} else {
+			hardlink(&source, &destination)?;
+			instance.tracked.add_file(destination.to_string_lossy().to_string(), crate::game_instance::filetracker::InstallMethod::Default)
+		}
+	}
+
+	Ok(())
+}

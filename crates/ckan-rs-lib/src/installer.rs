@@ -14,48 +14,7 @@ use crate::metadb::ckan::SourceDirective;
 
 pub mod download;
 pub mod content;
-
-#[derive(Debug)]
-pub enum InstallError {
-	MissingContent,
-	HardLink(std::io::Error),
-	Copy(std::io::Error),
-}
-
-fn hardlink(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), InstallError> {
-	std::fs::hard_link(source, destination).map_err(InstallError::HardLink)
-}
-
-fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<(), InstallError> {
-	std::fs::copy(source, destination).map(|_|()).map_err(InstallError::Copy)
-}
-
-pub async fn install_module(options: &crate::CkanRsOptions, instance: &mut crate::game_instance::GameInstance, module: &ModuleInfo) -> Result<(), InstallError> {
-	let path = content::get_module_deployment_path(options, &module.unique_id);
-	if !path.exists() {
-		return Err(InstallError::MissingContent)
-	}
-
-	let install_instructions = get_install_instructions(module, path, instance.game_dir()).unwrap();
-
-	for (source, destination) in install_instructions {
-		/* TODO: Fallback InstallMethods */
-		let tracked = instance.tracked.get_file(&destination.to_string_lossy());
-		if let Some(tracked) = tracked {
-			match tracked.get_install_method() {
-				crate::game_instance::filetracker::InstallMethod::Default => hardlink(source, destination)?,
-				crate::game_instance::filetracker::InstallMethod::HardLink => hardlink(source, destination)?,
-				crate::game_instance::filetracker::InstallMethod::Copy => copy(source, destination)?,
-				crate::game_instance::filetracker::InstallMethod::Block => continue,
-			}
-		} else {
-			hardlink(&source, &destination)?;
-			instance.tracked.add_file(destination.to_string_lossy().to_string(), crate::game_instance::filetracker::InstallMethod::Default)
-		}
-	}
-
-	Ok(())
-}
+pub mod deployment;
 
 /// Deciphers the install directives into a simpler (source, destination) tuple.
 fn get_install_instructions(module: &ModuleInfo, extracted_archive: impl AsRef<Path>, game_dir: impl AsRef<Path>) -> Result<Vec<(PathBuf, PathBuf)>, std::io::Error> {

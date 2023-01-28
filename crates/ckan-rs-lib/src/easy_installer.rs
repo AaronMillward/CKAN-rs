@@ -23,7 +23,7 @@ pub async fn install<'id>(options: &crate::CkanRsOptions, instance: &mut GameIns
 
 	/* Install Content */
 	for module in to_install {
-		install_module(options, instance, module).await.expect("install failed.");
+		deployment::deploy_module(options, instance, module).await.expect("deployment failed.");
 	}
 
 	Ok(())
