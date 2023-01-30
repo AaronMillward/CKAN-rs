@@ -30,4 +30,8 @@ impl TrackedFiles {
 	pub fn get_file(&self, path: &str) -> Option<&TrackedFile> {
 		self.files.get(path)
 	}
+
+	pub fn clear(&self) {
+		self.files.clear();
+	}
 }
