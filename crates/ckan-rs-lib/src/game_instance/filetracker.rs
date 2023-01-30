@@ -1,37 +1,25 @@
+//! Used to track what files have been installed to a game directory.
+
 use std::collections::HashMap;
-
-#[derive(Debug, Clone, Copy)]
-pub enum InstallMethod {
-	Default,
-	HardLink,
-	Copy,
-	Block,
-}
-
-#[derive(Debug)]
-pub struct TrackedFile {
-	install_method: InstallMethod,
-}
-
-impl TrackedFile {
-	pub fn get_install_method(&self) -> InstallMethod { self.install_method }
-}
 
 #[derive(Debug, Default)]
 pub struct TrackedFiles {
-	files: HashMap<String, TrackedFile>
+	/* TODO: In the future we could use a tuple in this Vec instead to store additional data such as method or reason. */
+	files: HashMap<crate::metadb::ckan::ModUniqueIdentifier, Vec<String>>
 }
 
 impl TrackedFiles {
-	pub fn add_file(&mut self, file: String, install_method: InstallMethod) {
-		self.files.insert(file, TrackedFile { install_method });
+	pub fn add_file(&mut self, module: &crate::metadb::ckan::ModUniqueIdentifier, file: String) {
+		let existing = self.files.get_mut(module);
+
+		if let Some(val) = existing {
+			val.push(file);
+		} else {
+			self.files.insert(module.clone(), vec![file]);
+		}
 	}
 
-	pub fn get_file(&self, path: &str) -> Option<&TrackedFile> {
-		self.files.get(path)
-	}
-
-	pub fn clear(&self) {
+	pub fn clear(&mut self) {
 		self.files.clear();
 	}
 }

@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::path::Path;
 
 use crate::ModuleInfo;
+use crate::metadb::ckan::ModUniqueIdentifier;
 use crate::metadb::ckan::SourceDirective;
 
 #[derive(Debug)]
@@ -93,11 +94,15 @@ pub async fn clean_deployment(options: &crate::CkanRsOptions, instance: &mut cra
 /// Cleans the instance then links all required mod files.
 pub async fn redeploy_modules(options: &crate::CkanRsOptions, db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
 	clean_deployment(options, instance).await?;
+
+	let mut tracked_files = Vec::<(&ModUniqueIdentifier, Vec<String>)>::new();
 	
 	for module in instance.get_enabled_modules() {
-		let module = db.get_from_identifier_and_version(&module.identifier, &module.version).expect("module no longer exists in metadb.");
+		let module = db.get_from_unique_id(module).expect("module no longer exists in metadb.");
 		let path = super::content::get_module_deployment_path(options, &module.unique_id);
 		let path = path.exists().then(|| path).ok_or(DeploymentError::MissingContent)?;
+
+		let mut module_files = Vec::<String>::new();
 
 		let install_instructions = get_install_instructions(module, path).unwrap();
 	
@@ -108,7 +113,15 @@ pub async fn redeploy_modules(options: &crate::CkanRsOptions, db: crate::MetaDB,
 				todo!("directory source deployment")
 			}
 			hardlink!(&source, &destination)?;
-			instance.tracked.add_file(destination.to_string_lossy().to_string(), crate::game_instance::filetracker::InstallMethod::Default)
+			module_files.push(destination.to_string_lossy().to_string());
+		}
+
+		tracked_files.push((&module.unique_id, module_files));
+	}
+
+	for (module, files) in tracked_files {
+		for f in files {
+			instance.tracked.add_file(module, f);
 		}
 	}
 

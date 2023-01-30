@@ -1,8 +1,8 @@
 use ckan_rs::game_instance::GameInstance;
 
-#[test]
-fn full_install() {
-	use ckan_rs::manager::relationship_resolver::*;
+#[tokio::test]
+async fn full_install() {
+	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 
 	let options = ckan_rs::CkanRsOptions::default();
@@ -23,7 +23,7 @@ fn full_install() {
 		InstallRequirement {mod_identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
-	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions);
+	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions.clone());
 
 	let modules = loop {
 		match resolver.attempt_resolve() {
@@ -45,7 +45,7 @@ fn full_install() {
 	};
 
 	eprintln!("Final Module List:");
-	for m in modules {
+	for m in &modules {
 		eprintln!("\tID: {} VERSION: {:?}", m.identifier, m.version);
 	}
 
@@ -58,12 +58,16 @@ fn full_install() {
 		.build()
 		.unwrap();
 
-	ckan_rs::installer::download::download_modules_content(&options, &client, modules).await;
+	let modules = modules.iter()
+		.map(|m| db.get_from_unique_id(m).expect("mod identifier missing from metadb"))
+		.collect::<Vec<_>>();
+
+	ckan_rs::installer::download::download_modules_content(&options, &client, modules.as_slice()).await;
 
 	for module in modules {
 		ckan_rs::installer::content::extract_content_to_deployment(&options, module).unwrap();
 	}
 
-	ckan_rs::installer::deployment::redeploy_modules(&options, db, &mut instance);
+	ckan_rs::installer::deployment::redeploy_modules(&options, db, &mut instance).await.expect("deployment failed");
 
 }

@@ -18,7 +18,7 @@ pub fn get_module_download_path(options: &crate::CkanRsOptions, id: &crate::meta
 }
 
 // Downloads multiple modules contents.
-pub async fn download_modules_content<'info>(options: &crate::CkanRsOptions, client: &reqwest::Client, modules: &'info [crate::metadb::ModuleInfo]) -> Vec<(&'info crate::metadb::ModuleInfo, Result<std::path::PathBuf, DownloadError>)> {
+pub async fn download_modules_content<'info>(options: &crate::CkanRsOptions, client: &reqwest::Client, modules: &[&'info crate::metadb::ModuleInfo]) -> Vec<(&'info crate::metadb::ModuleInfo, Result<std::path::PathBuf, DownloadError>)> {
 	let download_directory = options.download_dir();
 	
 	let mut results = Vec::<(&crate::metadb::ModuleInfo, Result<std::path::PathBuf, DownloadError>)>::new();

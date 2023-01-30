@@ -28,11 +28,15 @@ impl MetaDB {
 		&self.modules
 	}
 
+	pub fn get_from_unique_id(&self, id: &ckan::ModUniqueIdentifier) -> Option<&ckan::ModuleInfo> {
+		self.modules.iter().find(|module| module.unique_id == *id)
+	}
+
 	pub fn get_from_identifier_and_version(&self, identifier: &str, version: &ckan::ModVersion) -> Option<&ckan::ModuleInfo> {
 		let unique = ckan::ModUniqueIdentifier {
 			identifier: identifier.to_string(),
 			version: version.clone(),
 		};
-		self.modules.iter().find(|module| module.unique_id == unique)
+		self.get_from_unique_id(&unique)
 	}
 }

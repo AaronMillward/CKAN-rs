@@ -2,10 +2,12 @@ use crate::metadb::ckan;
 
 pub mod filetracker;
 
+#[derive(Debug)]
 pub enum GameInstanceError {
 	RequiredFilesMissing(std::io::Error),
 }
 
+#[derive(Debug)]
 pub struct GameInstance {
 	path: std::path::PathBuf,
 	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
@@ -23,7 +25,7 @@ impl GameInstance {
 	}
 
 	pub fn get_enabled_modules(&self) -> &Vec<ckan::ModUniqueIdentifier> {
-		return &self.enabled_modules
+		&self.enabled_modules
 	}
 
 	pub fn add_enabled_module(&mut self, module: ckan::ModUniqueIdentifier) {

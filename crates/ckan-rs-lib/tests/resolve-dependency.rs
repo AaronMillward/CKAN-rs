@@ -1,6 +1,6 @@
 #[test]
 fn resolve_dependency() {
-	use ckan_rs::manager::relationship_resolver::*;
+	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 	
 	let db = {
