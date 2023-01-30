@@ -1,11 +1,6 @@
-use crate::metadb::{ckan, MetaDB};
-use crate::relationship_resolver;
+use crate::metadb::ckan;
 
 pub mod filetracker;
-pub mod transaction;
-pub use transaction::GameInstanceTransaction;
-
-use self::filetracker::TrackedFiles;
 
 pub enum GameInstanceError {
 	RequiredFilesMissing(std::io::Error),
@@ -14,7 +9,6 @@ pub enum GameInstanceError {
 pub struct GameInstance {
 	path: std::path::PathBuf,
 	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
-	wanted_modules: Vec<relationship_resolver::InstallRequirement>,
 	enabled_modules: Vec<ckan::ModUniqueIdentifier>,
 	pub tracked: filetracker::TrackedFiles,
 }
@@ -24,23 +18,19 @@ impl GameInstance {
 		&self.path
 	}
 
-	pub fn start_transaction(self, metadb: &MetaDB) -> GameInstanceTransaction {
-		GameInstanceTransaction::new(self, metadb)
-	}
-
 	pub fn is_file_installable(&self, path: String) -> bool {
 		todo!()
 	}
 
-	pub fn get_enabled_modules(&self) -> Vec<ckan::ModUniqueIdentifier> {
-		return self.enabled_modules
+	pub fn get_enabled_modules(&self) -> &Vec<ckan::ModUniqueIdentifier> {
+		return &self.enabled_modules
 	}
 
-	pub fn add_enabled_module(&self, module: ckan::ModUniqueIdentifier) {
+	pub fn add_enabled_module(&mut self, module: ckan::ModUniqueIdentifier) {
 		self.enabled_modules.push(module);
 	}
 
-	pub fn clear_enabled_modules(&self) {
+	pub fn clear_enabled_modules(&mut self) {
 		self.enabled_modules.clear();
 	}
 
@@ -57,7 +47,6 @@ impl GameInstance {
 			path: game_root_directory.to_path_buf(),
 			compatible_ksp_versions: vec![ckan::KspVersion::try_from("1.12.3").unwrap()],
 			tracked: Default::default(),
-			wanted_modules: Default::default(),
 			enabled_modules: Default::default(),
 		})
 	}

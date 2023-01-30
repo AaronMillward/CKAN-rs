@@ -25,5 +25,3 @@ pub use config::CkanRsOptions;
 pub mod installer;
 pub mod relationship_resolver;
 pub mod game_instance;
-
-pub mod easy_installer;
