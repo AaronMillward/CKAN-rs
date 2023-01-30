@@ -1,4 +1,4 @@
-//! Handles installing modules to a game directory
+//! Handles installing packages to a game directory
 
 /* 
 I quickly searched through the metadb using vim and it seems like the *vast* majority of content types are `application/zip`

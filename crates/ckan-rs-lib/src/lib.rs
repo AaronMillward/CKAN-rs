@@ -17,7 +17,7 @@ pub use error::Error;
 
 pub mod metadb;
 pub use metadb::MetaDB;
-pub use metadb::ckan::ModuleInfo;
+pub use metadb::ckan::Package;
 
 pub mod config;
 pub use config::CkanRsOptions;

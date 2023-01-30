@@ -24,8 +24,8 @@ impl MetaDB {
 		/* TODO: Determine if this is IO or CPU bound causing it to take 15 sec to generate. */
 
 		Ok(Self {
-			modules: {
-				let mut v = HashSet::<ModuleInfo>::new();
+			packages: {
+				let mut v = HashSet::<Package>::new();
 
 				let compiled_schema = if do_validation {
 					Some(
@@ -62,7 +62,7 @@ impl MetaDB {
 					}
 
 					{
-						let ckan : ModuleInfo = match ModuleInfo::read_from_json(json) {
+						let ckan : Package = match Package::read_from_json(json) {
 							Ok(v) => v,
 							Err(e) => {
 								eprintln!("Couldn't process entry {} in metadb: {}", i, e);

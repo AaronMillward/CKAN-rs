@@ -1,6 +1,6 @@
 //! Various helper functions for testing
 //! 
-//! functions in this module should use results and not use any panics to avoid confusion in callers
+//! Functions in this module should use results and not use any panics to avoid confusion in callers.
 
 use std::io::{Read, Write};
 

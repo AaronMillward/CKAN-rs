@@ -13,21 +13,21 @@ fn resolve_dependency() {
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
 	
 	let requirements = vec![
-		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },
-		InstallRequirement {mod_identifier: "ProceduralParts".to_string(), ..Default::default() },
-		InstallRequirement {mod_identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
-		InstallRequirement {mod_identifier: "Parallax".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions);
 
 	loop {
 		match resolver.attempt_resolve() {
-			ResolverStatus::Complete(new_modules) => {
+			ResolverStatus::Complete(new_packages) => {
 				dbg!(resolver.get_complete_graph().unwrap());
-				eprintln!("Final Module List:");
-				for m in new_modules {
-					eprintln!("\tID: {} VERSION: {:?}", m.identifier, m.version);
+				eprintln!("Final Package List:");
+				for package in new_packages {
+					eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 				}
 				break;
 			},
@@ -41,7 +41,7 @@ fn resolve_dependency() {
 			},
 			ResolverStatus::Failed(fails) => {
 				for fail in fails {
-					eprintln!("Module `{}` failed with {:?}", fail.0, fail.1)
+					eprintln!("Package `{}` failed with {:?}", fail.0, fail.1)
 				}
 				eprintln!("-- BEGIN FAILED GRAPH DUMP --");
 				dbg!(resolver.get_graph()); 

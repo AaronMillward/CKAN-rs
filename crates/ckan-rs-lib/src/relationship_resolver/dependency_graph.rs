@@ -1,4 +1,4 @@
-//! Sub-module for only DependencyGraph functions not related to the overall resolving process.
+//! Module for only DependencyGraph functions not related to the overall resolving process.
 
 use petgraph::prelude::*;
 
@@ -10,14 +10,14 @@ pub type DependencyGraph = StableDiGraph<NodeData, EdgeData>;
 #[derive(Debug, Clone)]
 pub struct CandidateData {
 	pub dirty: bool,
-	pub id: ModUniqueIdentifier,
+	pub id: PackageIdentifier,
 }
 
 #[derive(Debug, Clone)]
 pub enum NodeData {
-	/// Node contains a module which can't be changed.
-	Fixed(String, ModUniqueIdentifier),
-	/// Node contains a possibly compatible module.
+	/// Node contains a package which can't be changed.
+	Fixed(String, PackageIdentifier),
+	/// Node contains a possibly compatible package.
 	Candidate(String, CandidateData),
 	/// Node only refers to an identifier with no additonal information.
 	Stub(String),
@@ -32,17 +32,17 @@ pub enum NodeData {
 #[derive(Debug, Clone)]
 pub enum EdgeData {
 	/// Any of the target nodes can be used to fulfill the source node.
-	AnyOf(crate::metadb::ckan::ModVersionBounds),
-	/// A requirement from the source module for the target to be within `ModVersionBounds`
-	Depends(crate::metadb::ckan::ModVersionBounds),
+	AnyOf(crate::metadb::ckan::PackageVersionBounds),
+	/// A requirement from the source package for the target to be within `ModVersionBounds`
+	Depends(crate::metadb::ckan::PackageVersionBounds),
 	/// Leads to a `Decision` node
 	Decision,
 	/// A possible choice for a `Decision` node.
 	/// 
 	/// Not be confused with `AnyOf` which is also used in `Decision` nodes.
 	Option,
-	/// Modules inside these bounds are not compatible with the source node.
-	Conflicts(crate::metadb::ckan::ModVersionBounds),
+	/// Packages inside these bounds are not compatible with the source node.
+	Conflicts(crate::metadb::ckan::PackageVersionBounds),
 	/// Choice outgoing from `Decision` node.
 	Selected,
 }
@@ -52,7 +52,7 @@ pub enum EdgeData {
 /// Analyses version incoming requirements to find a bound that satisfies.
 /// 
 /// This function will recurse to get version bounds for virtual nodes.
-pub fn get_version_bounds_for_node(graph: &DependencyGraph, src: NodeIndex) -> Option<ModVersionBounds> {
+pub fn get_version_bounds_for_node(graph: &DependencyGraph, src: NodeIndex) -> Option<PackageVersionBounds> {
 	/* TODO: Conflicts */
 	let mut bound = VersionBounds::Any;
 
@@ -85,29 +85,29 @@ pub fn get_version_bounds_for_node(graph: &DependencyGraph, src: NodeIndex) -> O
 	Some(bound)
 }
 
-/// Clears `src` outbound edges and replaces them with edges from `module`
+/// Clears `src` outbound edges and replaces them with edges from `package`
 /// # Panics
 /// - If `src` is not a `Candidate` or `Stub`.
-pub fn set_node_as_module(graph: &mut DependencyGraph, src: NodeIndex, module: &ckan::ModuleInfo) {
+pub fn set_node_as_package(graph: &mut DependencyGraph, src: NodeIndex, package: &ckan::Package) {
 	/* TODO: Check if any requirements actually changed. without this check cyclic dependencies will repeatedly set each other as dirty */
 	let id = if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &graph[src] {
 		name.clone()
 	} else {
-		unimplemented!("node can't be set as a module.")
+		unimplemented!("node can't be set as a package.")
 	};
 
 	clear_nodes_requirements(graph, src);
-	add_node_edges_from_module(graph, module, src);
-	graph[src] = NodeData::Candidate(id, CandidateData { dirty: false, id: module.unique_id.clone() } );
+	add_node_edges_from_package(graph, package, src);
+	graph[src] = NodeData::Candidate(id, CandidateData { dirty: false, id: package.identifier.clone() } );
 }
 
 
-/// Add all the required edges and `Decision` nodes from `module` to `src`
+/// Add all the required edges and `Decision` nodes from `package` to `src`
 /// - Sets the `dirty` flag on any candidate nodes affected.
 /// - Does not remove existing edges of the node. (See `clear_nodes_requirements()`)
 /// - Is not concerned with the type of node it is being applied to.
-pub fn add_node_edges_from_module(graph: &mut DependencyGraph, module: &ckan::ModuleInfo, src: NodeIndex) {
-	for req in &module.depends {
+pub fn add_node_edges_from_package(graph: &mut DependencyGraph, package: &ckan::Package, src: NodeIndex) {
+	for req in &package.depends {
 		match req {
 			Relationship::AnyOf(r) => {
 				let decision = graph.add_node(NodeData::Decision);
@@ -126,7 +126,7 @@ pub fn add_node_edges_from_module(graph: &mut DependencyGraph, module: &ckan::Mo
 		}
 	}
 
-	for conflict in &module.conflicts {
+	for conflict in &package.conflicts {
 		for r in conflict.as_vec() {
 			let b = get_or_add_node_index(graph, &r.name);
 			if let NodeData::Candidate(_, data) = &mut graph[b] { data.dirty = true; }

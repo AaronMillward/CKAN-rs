@@ -1,39 +1,39 @@
 use serde::*;
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
-pub struct ModVersion {
+pub struct PackageVersion {
 	epoch: i32,
-	mod_version: String,
+	version: String,
 }
 
-impl ModVersion {
+impl PackageVersion {
 	pub fn new(version: &str) -> crate::Result<Self> {
-		/* FIXME: mod_version can be *any* string so this method assumes mod_version doesn't contain a ':' */
+		/* FIXME: version can be *any* string so this method assumes version doesn't contain a ':' */
 		let spl: Vec<&str> = version.splitn(2,':').collect();
-		Ok(ModVersion {
+		Ok(PackageVersion {
 			epoch: {
 				spl[0].parse::<i32>().unwrap_or(0) /* FIXME: We assume spl[0] is not just a number */
 			},
-			mod_version: {
+			version: {
 				spl[spl.len() - 1].to_string()
 			}
 		})
 	}
 }
 
-impl TryFrom<String> for ModVersion {
+impl TryFrom<String> for PackageVersion {
 	type Error = crate::Error;
 	fn try_from(value: String) -> Result<Self, Self::Error> { Self::new(&value) }
 }
 
-impl PartialEq for ModVersion {
+impl PartialEq for PackageVersion {
 	fn eq(&self, other: &Self) -> bool {
 		self.epoch == other.epoch &&
-		self.mod_version == other.mod_version
+		self.version == other.version
 	}
 }
 
-impl Ord for ModVersion {
+impl Ord for PackageVersion {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		match self.epoch.cmp(&other.epoch) {
 			std::cmp::Ordering::Equal => {
@@ -99,8 +99,8 @@ impl Ord for ModVersion {
 					}
 				}
 
-				let mut lhs: (&str, &str) = ("", &self.mod_version);
-				let mut rhs: (&str, &str) = ("", &other.mod_version);
+				let mut lhs: (&str, &str) = ("", &self.version);
+				let mut rhs: (&str, &str) = ("", &other.version);
 				
 				while !lhs.1.is_empty() && !rhs.1.is_empty() {
 					lhs = get_string_until_numeric(lhs.1);
@@ -132,22 +132,22 @@ impl Ord for ModVersion {
 	}
 }
 
-impl PartialOrd for ModVersion {
+impl PartialOrd for PackageVersion {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
 }
 
-impl std::hash::Hash for ModVersion {
+impl std::hash::Hash for PackageVersion {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.epoch.hash(state);
-		self.mod_version.hash(state);
+		self.version.hash(state);
 	}
 }
 
-impl std::fmt::Display for ModVersion {
+impl std::fmt::Display for PackageVersion {
 	fn fmt(&self, f: &mut __private::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}:{}", self.epoch, self.mod_version)
+		write!(f, "{}:{}", self.epoch, self.version)
 	}
 }
 
@@ -155,13 +155,13 @@ impl std::fmt::Display for ModVersion {
 mod test {
 	use super::*;
 
-	#[test] fn mod_version_are_not_compared_lexically() { assert!(ModVersion::new("1.2.4.0").unwrap() < ModVersion::new("1.2.10.0").unwrap()) }
-	#[test] fn mod_version_short_version_is_lt() { assert!(ModVersion::new("1.2").unwrap() < ModVersion::new("1.2.3").unwrap()) }
-	#[test] fn mod_version_identical_are_eq() { assert!(ModVersion::new("1.2.3").unwrap() == ModVersion::new("1.2.3").unwrap()) }
-	#[test] fn mod_version_higher_version_is_gt() { assert!(ModVersion::new("1.2.3").unwrap() < ModVersion::new("1.2.4").unwrap()) }
-	#[test] fn mod_version_prefix_is_supported() { assert!(ModVersion::new("v1.2.3").unwrap() < ModVersion::new("v1.2.4").unwrap()) }
-	#[test] fn mod_version_prefix_is_compared_lexically() { assert!(ModVersion::new("a1.2.3").unwrap() < ModVersion::new("b1.2.3").unwrap()) }
-	#[test] fn mod_version_trailing_non_digit() { assert!(ModVersion::new("1.2a").unwrap() < ModVersion::new("1.2b").unwrap()) }
-	#[test] fn mod_version_trailing_digit() { assert!(ModVersion::new("1.2").unwrap() < ModVersion::new("1.3").unwrap()) }
-	#[test] fn mod_version_epoch_is_respected() { assert!(ModVersion::new("1:1.2").unwrap() < ModVersion::new("2:v0.1").unwrap()) }
+	#[test] fn mod_version_are_not_compared_lexically() { assert!(PackageVersion::new("1.2.4.0").unwrap() < PackageVersion::new("1.2.10.0").unwrap()) }
+	#[test] fn mod_version_short_version_is_lt() { assert!(PackageVersion::new("1.2").unwrap() < PackageVersion::new("1.2.3").unwrap()) }
+	#[test] fn mod_version_identical_are_eq() { assert!(PackageVersion::new("1.2.3").unwrap() == PackageVersion::new("1.2.3").unwrap()) }
+	#[test] fn mod_version_higher_version_is_gt() { assert!(PackageVersion::new("1.2.3").unwrap() < PackageVersion::new("1.2.4").unwrap()) }
+	#[test] fn mod_version_prefix_is_supported() { assert!(PackageVersion::new("v1.2.3").unwrap() < PackageVersion::new("v1.2.4").unwrap()) }
+	#[test] fn mod_version_prefix_is_compared_lexically() { assert!(PackageVersion::new("a1.2.3").unwrap() < PackageVersion::new("b1.2.3").unwrap()) }
+	#[test] fn mod_version_trailing_non_digit() { assert!(PackageVersion::new("1.2a").unwrap() < PackageVersion::new("1.2b").unwrap()) }
+	#[test] fn mod_version_trailing_digit() { assert!(PackageVersion::new("1.2").unwrap() < PackageVersion::new("1.3").unwrap()) }
+	#[test] fn mod_version_epoch_is_respected() { assert!(PackageVersion::new("1:1.2").unwrap() < PackageVersion::new("2:v0.1").unwrap()) }
 }

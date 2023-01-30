@@ -2,17 +2,17 @@
 //! 
 //! Here we link the files from the downloaded content into the game's directory.
 //! 
-//! Note that there is no utilities for operating on a single module at a time. 
+//! Note that there is no utilities for operating on a single package at a time. 
 //! this is because the hard links used in deployment are so cheap to create 
-//! it's simply easier to redeploy the modules every time a change is made.
+//! it's simply easier to redeploy the packages every time a change is made.
 //! 
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::path::Path;
 
-use crate::ModuleInfo;
-use crate::metadb::ckan::ModUniqueIdentifier;
+use crate::Package;
+use crate::metadb::ckan::PackageIdentifier;
 use crate::metadb::ckan::SourceDirective;
 
 #[derive(Debug)]
@@ -30,12 +30,12 @@ macro_rules! hardlink {
 
 /// Deciphers the install directives into a simpler (`source`, `destination`) tuple.
 /// where `source` is an absolute path and `destination` is relative to the game directory.
-fn get_install_instructions(module: &ModuleInfo, extracted_archive: impl AsRef<Path>) -> Result<Vec<(PathBuf, PathBuf)>, std::io::Error> {
+fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Path>) -> Result<Vec<(PathBuf, PathBuf)>, std::io::Error> {
 	let extracted_archive = extracted_archive.as_ref();
 
 	let install_instructions = Vec::<(PathBuf, PathBuf)>::new();
 
-	if module.install.is_empty() {
+	if package.install.is_empty() {
 		/* "If no install sections are provided, a CKAN client must find 
 		the top-most directory in the archive that matches the module identifier,
 		and install that with a target of GameData." */
@@ -43,7 +43,7 @@ fn get_install_instructions(module: &ModuleInfo, extracted_archive: impl AsRef<P
 		todo!()
 	}
 
-	for directive in &module.install {
+	for directive in &package.install {
 		let mut instruction: (PathBuf, PathBuf) = Default::default();
 
 		instruction.1 = if directive.install_to == "GameRoot" {
@@ -85,26 +85,26 @@ fn get_install_instructions(module: &ModuleInfo, extracted_archive: impl AsRef<P
 	Ok(install_instructions)
 }
 
-/// Cleans the given instance of all modded files.
+/// Cleans the given instance of all package files.
 pub async fn clean_deployment(options: &crate::CkanRsOptions, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
 	todo!();
 	instance.tracked.clear();
 }
 
-/// Cleans the instance then links all required mod files.
-pub async fn redeploy_modules(options: &crate::CkanRsOptions, db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
+/// Cleans the instance then links all required package files.
+pub async fn redeploy_packages(options: &crate::CkanRsOptions, db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
 	clean_deployment(options, instance).await?;
 
-	let mut tracked_files = Vec::<(&ModUniqueIdentifier, Vec<String>)>::new();
+	let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
 	
-	for module in instance.get_enabled_modules() {
-		let module = db.get_from_unique_id(module).expect("module no longer exists in metadb.");
-		let path = super::content::get_module_deployment_path(options, &module.unique_id);
+	for package in instance.get_enabled_packages() {
+		let package = db.get_from_unique_id(package).expect("package no longer exists in metadb.");
+		let path = super::content::get_package_deployment_path(options, &package.identifier);
 		let path = path.exists().then(|| path).ok_or(DeploymentError::MissingContent)?;
 
-		let mut module_files = Vec::<String>::new();
+		let mut package_files = Vec::<String>::new();
 
-		let install_instructions = get_install_instructions(module, path).unwrap();
+		let install_instructions = get_install_instructions(package, path).unwrap();
 	
 		for (source, destination) in install_instructions {
 			/* TODO: Install Methods */
@@ -113,15 +113,15 @@ pub async fn redeploy_modules(options: &crate::CkanRsOptions, db: crate::MetaDB,
 				todo!("directory source deployment")
 			}
 			hardlink!(&source, &destination)?;
-			module_files.push(destination.to_string_lossy().to_string());
+			package_files.push(destination.to_string_lossy().to_string());
 		}
 
-		tracked_files.push((&module.unique_id, module_files));
+		tracked_files.push((&package.identifier, package_files));
 	}
 
-	for (module, files) in tracked_files {
+	for (package, files) in tracked_files {
 		for f in files {
-			instance.tracked.add_file(module, f);
+			instance.tracked.add_file(package, f);
 		}
 	}
 

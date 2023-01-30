@@ -11,7 +11,7 @@ pub enum GameInstanceError {
 pub struct GameInstance {
 	path: std::path::PathBuf,
 	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
-	enabled_modules: Vec<ckan::ModUniqueIdentifier>,
+	enabled_packages: Vec<ckan::PackageIdentifier>,
 	pub tracked: filetracker::TrackedFiles,
 }
 
@@ -24,16 +24,16 @@ impl GameInstance {
 		todo!()
 	}
 
-	pub fn get_enabled_modules(&self) -> &Vec<ckan::ModUniqueIdentifier> {
-		&self.enabled_modules
+	pub fn get_enabled_packages(&self) -> &Vec<ckan::PackageIdentifier> {
+		&self.enabled_packages
 	}
 
-	pub fn add_enabled_module(&mut self, module: ckan::ModUniqueIdentifier) {
-		self.enabled_modules.push(module);
+	pub fn add_enabled_packages(&mut self, package: ckan::PackageIdentifier) {
+		self.enabled_packages.push(package);
 	}
 
-	pub fn clear_enabled_modules(&mut self) {
-		self.enabled_modules.clear();
+	pub fn clear_enabled_packages(&mut self) {
+		self.enabled_packages.clear();
 	}
 
 	pub fn new(game_root_directory: impl AsRef<std::path::Path>) -> Result<GameInstance, GameInstanceError>{
@@ -49,7 +49,7 @@ impl GameInstance {
 			path: game_root_directory.to_path_buf(),
 			compatible_ksp_versions: vec![ckan::KspVersion::try_from("1.12.3").unwrap()],
 			tracked: Default::default(),
-			enabled_modules: Default::default(),
+			enabled_packages: Default::default(),
 		})
 	}
 }

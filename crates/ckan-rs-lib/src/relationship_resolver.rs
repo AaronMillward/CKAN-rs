@@ -1,7 +1,5 @@
-//! Utilities for getting a valid set of compatible modules to be installed.
-//! 
-//! This module aims to provide tools which can take a list of requirements from the user and provide a list of modules to install.
-//! 
+//! Utilities for getting a valid set of compatible packages to be installed from a list of desired packages.
+
 use std::collections::{HashSet, VecDeque};
 
 use crate::metadb::*;
@@ -13,8 +11,8 @@ use dependency_graph::*;
 
 #[derive(Debug, Default)]
 pub struct InstallRequirement {
-	pub mod_identifier: String,
-	pub required_version: ModVersionBounds
+	pub identifier: String,
+	pub required_version: PackageVersionBounds
 }
 
 #[derive(Debug)]
@@ -22,49 +20,49 @@ pub struct DecisionInfo {
 	/* TODO: pub help_text: Option<String>, */
 	/// Available choices for the decision.
 	pub options: Vec<String>,
-	/// Which module requires this decision.
+	/// Which package requires this decision.
 	pub source: String,
 }
 
 /// These errors halt the progression of the resolver.
 #[derive(Debug)]
-pub enum DetermineModuleError {
+pub enum DeterminePackageError {
 	/// Identifier does not exist at all, not even as a virtual.
 	IdentifierDoesNotExist,
-	/// There are no modules within the version bounds.
+	/// There are no packages within the version bounds.
 	NoCompatibleVersion,
-	/// There are no modules compatible with the game versions.
+	/// There are no packages compatible with the game versions.
 	NoCompatibleGameVersion,
-	/// The versions bounds placed on this module do not have any intersection making them impossible to fulfill.
+	/// The versions bounds placed on this package do not have any intersection making them impossible to fulfill.
 	VersionBoundsImcompatible,
 
 }
 
 pub enum ResolverStatus {
-	/// The resolve has been succsessful, all modules are valid and compatible with each other.
-	Complete(Vec<ckan::ModUniqueIdentifier>),
-	/// The resolver was not able to determine which module to use when presented with a choice.
+	/// The resolve has been succsessful, all packages are valid and compatible with each other.
+	Complete(Vec<ckan::PackageIdentifier>),
+	/// The resolver was not able to determine which package to use when presented with a choice.
 	/// Use `RelationshipResolver::add_decision` and `DecisionInfo::options` to provide the resolver with a selection.
 	DecisionsRequired(Vec<DecisionInfo>),
 	/// The resolver is unable to continue as an unavoidable conflict has occured.
 	/// 
 	/// It is best to present this information to the user and allow them to decide how to proceed.
-	Failed(Vec<(String, DetermineModuleError)>),
+	Failed(Vec<(String, DeterminePackageError)>),
 }
 
-/// RelationshipResolver will take a list of top level requirements and generate a list of required modules
+/// RelationshipResolver will take a list of top level requirements and generate a list of required packages
 /// 
 /// # Usage
 /// First create a resolver using `RelationshipResolver::new`
 /// then call `RelationshipResolver::attempt_resolve` until complete while answering any decisions presented.
 /// 
 /// ## Failures
-/// The resolver may fail for reasons described in `DetermineModuleError`
+/// The resolver may fail for reasons described in [`DeterminePackageError`]
 /// when these occur they represent an error the resolver can't solve without human intervention.
 #[derive(Debug)]
 pub struct RelationshipResolver<'db> {
 	metadb: &'db MetaDB,
-	/// Tells the resolver which module to chose when faced with a decision
+	/// Tells the resolver which package to chose when faced with a decision
 	decisions: HashSet<String>,
 
 	compatible_ksp_versions: Vec<KspVersion>,
@@ -79,11 +77,11 @@ impl<'db> RelationshipResolver<'db> {
 	/// Creates a new `RelationshipResolver`.
 	/// 
 	/// # Arguments
-	/// - `metadb`: `MetaDB` containing the modules to resolve with.
-	/// - `modules_to_install`: A list of requirements to resolve.
+	/// - `metadb`: `MetaDB` containing the packages to resolve with.
+	/// - `packages_to_install`: A list of requirements to resolve.
 	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
-	/// - `compatible_ksp_versions`: Modules for these versions of the game can be installed.
-	pub fn new(metadb: &'db MetaDB, modules_to_install: &[InstallRequirement], existing_graph: Option<DependencyGraph>, compatible_ksp_versions: Vec<KspVersion>) -> Self {
+	/// - `compatible_ksp_versions`: Packages for these versions of the game can be installed.
+	pub fn new(metadb: &'db MetaDB, packages_to_install: &[InstallRequirement], existing_graph: Option<DependencyGraph>, compatible_ksp_versions: Vec<KspVersion>) -> Self {
 		let mut resolver = RelationshipResolver {
 			metadb,
 			decisions: Default::default(),
@@ -96,8 +94,8 @@ impl<'db> RelationshipResolver<'db> {
 		let meta = resolver.dep_graph.add_node(NodeData::Meta);
 		resolver.meta_node = meta;
 
-		for m in modules_to_install {
-			let new = get_or_add_node_index(&mut resolver.dep_graph, &m.mod_identifier);
+		for m in packages_to_install {
+			let new = get_or_add_node_index(&mut resolver.dep_graph, &m.identifier);
 			resolver.dep_graph.add_edge(meta, new, EdgeData::Depends(m.required_version.clone()));
 		}
 
@@ -132,7 +130,7 @@ impl<'db> RelationshipResolver<'db> {
 
 		loop {
 			/* Breadth First Search */
-			let mut failures = Vec::<(NodeIndex, DetermineModuleError)>::new();
+			let mut failures = Vec::<(NodeIndex, DeterminePackageError)>::new();
 			let mut compatible_candidates = Vec::<NodeIndex>::new();
 			let mut found_dirty = false;
 			let mut pending_decision_nodes = Vec::<NodeIndex>::new();
@@ -151,7 +149,7 @@ impl<'db> RelationshipResolver<'db> {
 					NodeData::Candidate(_, data) => {
 						if data.dirty {
 							found_dirty = true;
-							if let Err(e) = self.determine_module_for_candidate(i) { failures.push((i,e)) }
+							if let Err(e) = self.determine_package_for_candidate(i) { failures.push((i,e)) }
 						} else {
 							compatible_candidates.push(i);
 						}
@@ -159,7 +157,7 @@ impl<'db> RelationshipResolver<'db> {
 					},
 					NodeData::Stub(_) => {
 						found_dirty = true;
-						if let Err(e) = self.determine_module_for_candidate(i) { failures.push((i,e)) }
+						if let Err(e) = self.determine_package_for_candidate(i) { failures.push((i,e)) }
 						add_node_requirements_to_queue(&mut self.dep_graph, &mut queue, i); /* A failed stub will have no edges making this work */
 					},
 					NodeData::Decision => {
@@ -293,49 +291,49 @@ impl<'db> RelationshipResolver<'db> {
 		}
 	}
 
-	/// Reads the requirements placed on `src` and gets the latest module meeting the requirements.
+	/// Reads the requirements placed on `src` and gets the latest package meeting the requirements.
 	/// 
 	/// This function makes only finds the latest candidate compatible with the node requirements.
 	/// It makes no attempt to resolve conflicts arising from this choice.
 	/// # Panics
 	/// - If `src` is not a `Candidate` or `Stub`.
-	fn determine_module_for_candidate(&mut self, src: NodeIndex) -> Result<(), DetermineModuleError> {
+	fn determine_package_for_candidate(&mut self, src: NodeIndex) -> Result<(), DeterminePackageError> {
 		if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &self.dep_graph[src] {
 			let name = name.clone();
 
-			let bounds = get_version_bounds_for_node(&self.dep_graph, src).ok_or(DetermineModuleError::VersionBoundsImcompatible)?;
+			let bounds = get_version_bounds_for_node(&self.dep_graph, src).ok_or(DeterminePackageError::VersionBoundsImcompatible)?;
 
-			/* We don't use `bounds` yet, we want to grab every module providing the identifier so we can tell if it exists at all */
-			let matching_modules_providing = self.metadb.get_modules().iter().get_modules_providing(&ModuleDescriptor { name: name.clone(), version: VersionBounds::Any });
-			if matching_modules_providing.is_empty() {
-				Err(DetermineModuleError::IdentifierDoesNotExist)
-			} else if matching_modules_providing.len() == 1 {
-				/* There's only one module providing so it's a real module */
+			/* We don't use `bounds` yet, we want to grab every package providing the identifier so we can tell if it exists at all */
+			let matching_packages_providing = self.metadb.get_packages().iter().get_packages_providing(&PackageDescriptor { name: name.clone(), version: VersionBounds::Any });
+			if matching_packages_providing.is_empty() {
+				Err(DeterminePackageError::IdentifierDoesNotExist)
+			} else if matching_packages_providing.len() == 1 {
+				/* There's only one package providing so it's a real package */
 
-				let mut m: Vec<_> = matching_modules_providing.into_values().next().unwrap().into_iter().mod_version_matches(bounds).collect();
-				if m.is_empty() { return Err(DetermineModuleError::NoCompatibleVersion); }
+				let mut m: Vec<_> = matching_packages_providing.into_values().next().unwrap().into_iter().mod_version_matches(bounds).collect();
+				if m.is_empty() { return Err(DeterminePackageError::NoCompatibleVersion); }
 				m = m.into_iter().ksp_version_matches(self.compatible_ksp_versions.clone()).collect();
-				if m.is_empty() { return Err(DetermineModuleError::NoCompatibleGameVersion); }
+				if m.is_empty() { return Err(DeterminePackageError::NoCompatibleGameVersion); }
 
 				/* 
-				This is the latest module that matches the requirements.
+				This is the latest package that matches the requirements.
 				It's not for this function to determine the later side effects of this decision,
-				So we don't need to track the attempted modules or iterate all possible candidates.
+				So we don't need to track the attempted packages or iterate all possible candidates.
 				*/
 
 				m.sort();
 				let latest = m.get(0).cloned().unwrap();
 
-				set_node_as_module(&mut self.dep_graph, src, latest);
+				set_node_as_package(&mut self.dep_graph, src, latest);
 				
 				Ok(())
 			} else {
-				/* The module is virtual */
+				/* The package is virtual */
 				/* We represent the providers as a `Decision` node */
 				self.dep_graph[src] = NodeData::Virtual(name);
 				let decision = self.dep_graph.add_node(NodeData::Decision);
 				self.dep_graph.add_edge(src, decision, EdgeData::Decision);
-				for k in matching_modules_providing.keys() {
+				for k in matching_packages_providing.keys() {
 					let provider = get_or_add_node_index(&mut self.dep_graph, k);
 					self.dep_graph.add_edge(decision, provider, EdgeData::Option);
 				}

@@ -17,18 +17,18 @@ async fn full_install() {
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
 	
 	let requirements = vec![
-		InstallRequirement {mod_identifier: "MechJeb2".to_string(), ..Default::default() },
-		InstallRequirement {mod_identifier: "ProceduralParts".to_string(), ..Default::default() },
-		InstallRequirement {mod_identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
-		InstallRequirement {mod_identifier: "Parallax".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions.clone());
 
-	let modules = loop {
+	let packages = loop {
 		match resolver.attempt_resolve() {
-			ResolverStatus::Complete(new_modules) => {
-				break new_modules;
+			ResolverStatus::Complete(new_packages) => {
+				break new_packages;
 			},
 			ResolverStatus::DecisionsRequired(infos) => {
 				for info in infos {
@@ -44,9 +44,9 @@ async fn full_install() {
 		}
 	};
 
-	eprintln!("Final Module List:");
-	for m in &modules {
-		eprintln!("\tID: {} VERSION: {:?}", m.identifier, m.version);
+	eprintln!("Final Package List:");
+	for package in &packages {
+		eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 	}
 
 	let mut instance = GameInstance::new(env!("CARGO_MANIFEST_DIR").to_owned() + "/test-data/fake-game-dir").unwrap();
@@ -58,16 +58,16 @@ async fn full_install() {
 		.build()
 		.unwrap();
 
-	let modules = modules.iter()
-		.map(|m| db.get_from_unique_id(m).expect("mod identifier missing from metadb"))
+	let packages = packages.iter()
+		.map(|m| db.get_from_unique_id(m).expect("metadb package not found"))
 		.collect::<Vec<_>>();
 
-	ckan_rs::installer::download::download_modules_content(&options, &client, modules.as_slice()).await;
+	ckan_rs::installer::download::download_packages_content(&options, &client, packages.as_slice()).await;
 
-	for module in modules {
-		ckan_rs::installer::content::extract_content_to_deployment(&options, module).unwrap();
+	for package in packages {
+		ckan_rs::installer::content::extract_content_to_deployment(&options, package).unwrap();
 	}
 
-	ckan_rs::installer::deployment::redeploy_modules(&options, db, &mut instance).await.expect("deployment failed");
+	ckan_rs::installer::deployment::redeploy_packages(&options, db, &mut instance).await.expect("deployment failed");
 
 }

@@ -88,30 +88,30 @@ impl install::InstallDirective {
 	}
 }
 
-impl mod_version::ModVersion {
+impl mod_version::PackageVersion {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::Parse;
 		v.as_str()
 			.ok_or_else(|| Parse("version must be a string".to_string()))
 			.and_then(|s|
-				ModVersion::new(s).map_err(|_| Parse("version string can't be read as a version".to_string()))
+				PackageVersion::new(s).map_err(|_| Parse("version string can't be read as a version".to_string()))
 			)
 	}
 }
 
-impl relationship::ModuleDescriptor {
+impl relationship::PackageDescriptor {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::Parse;
-		Ok(relationship::ModuleDescriptor::new(
+		Ok(relationship::PackageDescriptor::new(
 			{
 				v.get("name")
 					.ok_or_else(|| Parse("JSON has no name field".to_string()))?
 					.as_str().ok_or_else(|| Parse("name must be a string".to_string()))?.to_string()
 			},
-			relationship::ModVersionBounds::new(
-				v.get("version").try_map(ModVersion::from_json)?,
-				v.get("min_version").try_map(ModVersion::from_json)?,
-				v.get("max_version").try_map(ModVersion::from_json)?
+			relationship::PackageVersionBounds::new(
+				v.get("version").try_map(PackageVersion::from_json)?,
+				v.get("min_version").try_map(PackageVersion::from_json)?,
+				v.get("max_version").try_map(PackageVersion::from_json)?
 			)?
 		))
 	}
@@ -131,10 +131,10 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 					/* any_of */
 					if let Some(f) = obj.get("any_of") {
 						if let Some(arr) = f.as_array() {
-							let mut ships = Vec::<ModuleDescriptor>::new();
+							let mut ships = Vec::<PackageDescriptor>::new();
 							for o in arr {
 								if o.is_object() {
-									if let Ok(val) = ModuleDescriptor::from_json(o) {
+									if let Ok(val) = PackageDescriptor::from_json(o) {
 										ships.push(val);
 									}
 								} else {
@@ -147,7 +147,7 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 						}
 					/* single */
 					} else if obj.get("name").is_some() {
-						Relationship::One(ModuleDescriptor::from_json(elem)?)
+						Relationship::One(PackageDescriptor::from_json(elem)?)
 					} else {
 						return Err(Parse("relationship object must be a relationship or any_of constraint".to_string()));
 					}
@@ -164,7 +164,7 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 	Ok(relationships)
 }
 
-impl ModuleInfo {
+impl Package {
 	pub fn read_from_json(v: serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::Parse;
 		use serde_json::*;
@@ -192,7 +192,7 @@ impl ModuleInfo {
 		/* FIXME: Lots of panics and error ignorance */
 
 		let obj = &v;
-		Ok( ModuleInfo {
+		Ok( Package {
 			spec_version: {
 				match obj.get("spec_version").ok_or_else(|| Parse("`spec_version` is missing".to_string()))? {
 					Value::Number(v) => v.to_string(),
@@ -200,12 +200,12 @@ impl ModuleInfo {
 					_ => return Err(Parse("invalid type".to_string())),
 				}
 			},
-			unique_id: relationship::ModUniqueIdentifier {
+			identifier: relationship::PackageIdentifier {
 				identifier: get_val(obj, "identifier")?,
 				version: obj.get("version")
 					.ok_or_else(|| Parse("`version` is missing".to_string()))
 					.and_then(|v| v.as_str().ok_or_else(|| Parse("`version` must be a string".to_string())))
-					.and_then(ModVersion::new)
+					.and_then(PackageVersion::new)
 					?,
 			},
 			name: get_val(obj, "name")?,
@@ -296,7 +296,7 @@ impl ModuleInfo {
 			suggests: obj.get("suggests").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			supports: obj.get("supports").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
 			conflicts: obj.get("conflicts").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			replaced_by: obj.get("replaced-by").map(|v| relationship::ModuleDescriptor::from_json(v).expect("couldn't read relationship from JSON")),
+			replaced_by: obj.get("replaced-by").map(|v| relationship::PackageDescriptor::from_json(v).expect("couldn't read relationship from JSON")),
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			provides: {
 				obj.get("provides").and_then(|value|

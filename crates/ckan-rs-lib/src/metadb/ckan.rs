@@ -1,4 +1,4 @@
-//! Various types associated with modules.
+//! Various types associated with packages.
 
 use std::{collections::{HashMap, HashSet}};
 use serde::*;
@@ -6,14 +6,17 @@ use serde::*;
 /* CKAN */
 
 /// A `.ckan` file containing mod info
-// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead
+/// 
+/// We use the term "Package" instead of "Module" due to the overlap with rust's keywords.
+/// 
+// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ModuleInfo {
+pub struct Package {
 	/* Required Fields */
 	pub spec_version: String,
-	pub unique_id: relationship::ModUniqueIdentifier,
+	pub identifier: relationship::PackageIdentifier,
 	pub name: String,
-	/// Rust friendly alias for `abstract`
+	/// Rust friendly alias for `abstract`.
 	pub blurb: String,
 	/* one or many */
 	pub author: Vec<String>,
@@ -41,47 +44,47 @@ pub struct ModuleInfo {
 	pub suggests: Vec<Relationship>,
 	pub supports: Vec<Relationship>,
 	pub conflicts: Vec<Relationship>,
-	pub replaced_by: Option<ModuleDescriptor>,
+	pub replaced_by: Option<PackageDescriptor>,
 	pub kind: Kind,
 	pub provides: HashSet<String>,
 	pub resources: HashMap<String, String>,
 }
 
-impl std::hash::Hash for ModuleInfo {
+impl std::hash::Hash for Package {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		self.unique_id.hash(state);
+		self.identifier.hash(state);
 	}
 }
 
-impl std::cmp::Ord for ModuleInfo {
+impl std::cmp::Ord for Package {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.unique_id.cmp(&other.unique_id)
+		self.identifier.cmp(&other.identifier)
 	}
 }
 
-impl std::cmp::PartialOrd for ModuleInfo {
+impl std::cmp::PartialOrd for Package {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
 }
 
-impl std::cmp::PartialEq for ModuleInfo {
+impl std::cmp::PartialEq for Package {
 	fn eq(&self, other: &Self) -> bool {
-		self.unique_id == other.unique_id
+		self.identifier == other.identifier
 	}
 }
 
-impl std::cmp::Eq for ModuleInfo {}
+impl std::cmp::Eq for Package {}
 
-impl ModuleInfo {
-	/// Checks if the given modules conflict with each other
-	pub fn do_modules_conflict(lhs: &Self, rhs: &Self) -> bool {
+impl Package {
+	/// Checks if the given packages conflict with each other
+	pub fn do_packages_conflict(lhs: &Self, rhs: &Self) -> bool {
 		let mut conflicts = false;
 		for con in &lhs.conflicts {
-			conflicts |= relationship::does_module_fulfill_relationship(rhs, con);
+			conflicts |= relationship::does_package_fulfill_relationship(rhs, con);
 		}
 		for con in &rhs.conflicts {
-			conflicts |= relationship::does_module_fulfill_relationship(lhs, con);
+			conflicts |= relationship::does_package_fulfill_relationship(lhs, con);
 		}
 		conflicts
 	}
@@ -97,7 +100,7 @@ pub use ksp_version::KspVersion;
 pub use ksp_version::KspVersionBounds;
 
 mod mod_version;
-pub use mod_version::ModVersion;
+pub use mod_version::PackageVersion;
 
 mod install;
 pub use install::InstallDirective;
@@ -108,13 +111,13 @@ mod release;
 pub use release::ReleaseStatus;
 
 mod relationship;
-pub use relationship::ModUniqueIdentifier;
-pub use relationship::ModVersionBounds;
+pub use relationship::PackageIdentifier;
+pub use relationship::PackageVersionBounds;
 pub use relationship::Relationship;
-pub use relationship::ModuleDescriptor;
-pub use relationship::does_module_fulfill_relationship;
-pub use relationship::does_module_provide_descriptor;
-pub use relationship::does_module_match_descriptor;
+pub use relationship::PackageDescriptor;
+pub use relationship::does_package_fulfill_relationship;
+pub use relationship::does_package_provide_descriptor;
+pub use relationship::does_package_match_descriptor;
 
 mod kind;
 pub use kind::Kind;
