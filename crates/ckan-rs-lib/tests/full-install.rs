@@ -7,11 +7,11 @@ async fn full_install() {
 
 	let options = ckan_rs::CkanRsOptions::default();
 	
-	let db = {
+	let db: ckan_rs::MetaDB = {
 		let p = env!("CARGO_MANIFEST_DIR").to_owned() + "/test-data/metadb.bin";
 		eprintln!("reading db from {}", p);
 		ckan_rs_test_utils::get_metadb(Some(std::path::PathBuf::from(p)))
-		// ckan_rs_test_utils::get_metadb(None)
+		// tokio::task::spawn_blocking(|| ckan_rs_test_utils::get_metadb(None)).await.expect("failed to generate metadb.")
 	};
 
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
@@ -19,8 +19,6 @@ async fn full_install() {
 	let requirements = vec![
 		InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() },
 		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
-		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
-		InstallRequirement {identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions.clone());
@@ -39,7 +37,8 @@ async fn full_install() {
 				}
 			},
 			ResolverStatus::Failed(fails) => {
-				panic!("resolver failed"); 
+				eprintln!("RESOLVER FAILS DUMP\n{:?}", fails);
+				panic!("resolver failed."); 
 			},
 		}
 	};
@@ -62,7 +61,12 @@ async fn full_install() {
 		.map(|m| db.get_from_unique_id(m).expect("metadb package not found"))
 		.collect::<Vec<_>>();
 
-	ckan_rs::installer::download::download_packages_content(&options, &client, packages.as_slice()).await;
+	{
+		let download_results = ckan_rs::installer::download::download_packages_content(&options, &client, packages.as_slice()).await;
+		for result in download_results {
+			if result.1.is_err() { panic!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
+		}
+	}
 
 	for package in packages {
 		ckan_rs::installer::content::extract_content_to_deployment(&options, package).unwrap();

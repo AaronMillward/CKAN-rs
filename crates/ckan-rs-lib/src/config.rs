@@ -29,7 +29,7 @@ impl CkanRsOptions {
 	}
 
 	pub fn deployment_dir(&self) -> &std::path::PathBuf {
-		&self.download_dir
+		&self.deployment_dir
 	}
 	/// returns if the directory is valid or not.
 	pub fn set_deployment_dir(&mut self, deployment_dir: std::path::PathBuf) -> bool {

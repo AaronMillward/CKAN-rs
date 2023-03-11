@@ -24,12 +24,13 @@ pub fn extract_content_to_deployment(options: &crate::CkanRsOptions, package: &c
 		if ct == "application/zip" {
 			let download_path = super::download::get_package_download_path(options, &package.identifier);
 			let deploy_path = get_package_deployment_path(options, &package.identifier);
-			let mut zip = std::fs::File::open(download_path)
+			let mut zip = std::fs::File::open(&download_path)
 				.map_err(ContentError::IO)
 				.and_then(|f|
 					zip::ZipArchive::new(f).map_err(ContentError::Zip)
 				)?;
 			
+			std::fs::create_dir_all(deploy_path.with_file_name("")).unwrap();
 			match zip.extract(deploy_path) {
 				Ok(_) => Ok(()),
 				Err(_) => todo!(), /* TODO: Clear left over files and return error */

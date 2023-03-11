@@ -6,6 +6,7 @@ use crate::Error::Parse;
 pub fn get_latest_archive() -> crate::Result<Vec<u8>> {
 	use std::io::Read;
 	let mut v = Vec::<u8>::new();
+	/* TODO: Async */
 	reqwest::blocking::get("https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz")?.read_to_end(&mut v)?;
 	Ok(v)
 }
