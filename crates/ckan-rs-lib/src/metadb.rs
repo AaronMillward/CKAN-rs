@@ -28,8 +28,8 @@ impl MetaDB {
 		&self.packages
 	}
 
-	pub fn get_from_unique_id(&self, id: &ckan::PackageIdentifier) -> Option<&ckan::Package> {
-		self.packages.iter().find(|package| package.identifier == *id)
+	pub fn get_from_unique_id(&self, id: impl AsRef<ckan::PackageIdentifier>) -> Option<&ckan::Package> {
+		self.packages.iter().find(|package| package.identifier == *id.as_ref())
 	}
 
 	pub fn get_from_identifier_and_version(&self, identifier: &str, version: &ckan::PackageVersion) -> Option<&ckan::Package> {
@@ -37,6 +37,6 @@ impl MetaDB {
 			identifier: identifier.to_string(),
 			version: version.clone(),
 		};
-		self.get_from_unique_id(&unique)
+		self.get_from_unique_id(unique)
 	}
 }

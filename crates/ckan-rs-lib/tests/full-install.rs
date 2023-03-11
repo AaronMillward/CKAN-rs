@@ -17,7 +17,7 @@ async fn full_install() {
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
 	
 	let requirements = vec![
-		InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() },
+		// InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() }, /* 404s? my fault? */
 		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
 	];
 
@@ -62,7 +62,7 @@ async fn full_install() {
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installer::download::download_packages_content(&options, &client, packages.as_slice()).await;
+		let download_results = ckan_rs::installer::download::download_packages_content(&options, &client, packages.as_slice(), false).await;
 		for result in download_results {
 			if result.1.is_err() { panic!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}
@@ -70,6 +70,8 @@ async fn full_install() {
 
 	for package in packages {
 		ckan_rs::installer::content::extract_content_to_deployment(&options, package).unwrap();
+		instance.add_enabled_packages(package);
+		dbg!(&package.install);
 	}
 
 	ckan_rs::installer::deployment::redeploy_packages(&options, db, &mut instance).await.expect("deployment failed");

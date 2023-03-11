@@ -76,6 +76,12 @@ impl std::cmp::PartialEq for Package {
 
 impl std::cmp::Eq for Package {}
 
+impl AsRef<PackageIdentifier> for Package {
+	fn as_ref(&self) -> &PackageIdentifier {
+		&self.identifier
+	}
+}
+
 impl Package {
 	/// Checks if the given packages conflict with each other
 	pub fn do_packages_conflict(lhs: &Self, rhs: &Self) -> bool {

@@ -28,8 +28,8 @@ impl GameInstance {
 		&self.enabled_packages
 	}
 
-	pub fn add_enabled_packages(&mut self, package: ckan::PackageIdentifier) {
-		self.enabled_packages.push(package);
+	pub fn add_enabled_packages(&mut self, package: impl AsRef<ckan::PackageIdentifier>) {
+		self.enabled_packages.push(package.as_ref().clone());
 	}
 
 	pub fn clear_enabled_packages(&mut self) {

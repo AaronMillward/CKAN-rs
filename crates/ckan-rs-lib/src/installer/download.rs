@@ -4,8 +4,6 @@
 pub enum DownloadError {
 	/// Given package cannot be downloaded as it has no download information.
 	PackageMissingDownloadFields,
-	/// There's no need to download this package it's already in the downloads cache.
-	ContentAlreadyDownloaded,
 	Reqwest(reqwest::Error),
 	IO(std::io::Error),
 }
@@ -18,15 +16,15 @@ pub fn get_package_download_path(options: &crate::CkanRsOptions, id: &crate::met
 }
 
 // Downloads multiple packages contents.
-pub async fn download_packages_content<'info>(options: &crate::CkanRsOptions, client: &reqwest::Client, packages: &[&'info crate::metadb::Package]) -> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
+pub async fn download_packages_content<'info>(options: &crate::CkanRsOptions, client: &reqwest::Client, packages: &[&'info crate::metadb::Package], force: bool) -> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
 	let mut results = Vec::<(&crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>::new();
 	
 	for package in packages {
 		/* TODO: unwraps */
 
 		let download_path = get_package_download_path(options, &package.identifier);
-		if download_path.exists() {
-			results.push((package, Err(DownloadError::ContentAlreadyDownloaded)));
+		if download_path.exists() && !force {
+			results.push((package, Ok(download_path)));
 			continue;
 		}
 		
@@ -40,6 +38,7 @@ pub async fn download_packages_content<'info>(options: &crate::CkanRsOptions, cl
 		tokio::fs::create_dir_all(download_path.with_file_name("")).await.unwrap();
 		let mut download_file = tokio::fs::File::create(&download_path).await.unwrap();
 	
+		eprintln!("downloading package {} from {}", package.identifier, url);
 		let content = client
 			.get(url)
 			.send()

@@ -37,6 +37,12 @@ impl std::fmt::Display for PackageIdentifier {
 	}
 }
 
+impl AsRef<PackageIdentifier> for PackageIdentifier {
+	fn as_ref(&self) -> &PackageIdentifier {
+		self
+	}
+}
+
 pub type PackageVersionBounds = VersionBounds<PackageVersion>;
 
 /// Describes a package using an identifier and version requirement.
