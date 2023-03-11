@@ -7,7 +7,6 @@
 //! it's simply easier to redeploy the packages every time a change is made.
 //! 
 
-use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::path::Path;
 
@@ -20,6 +19,9 @@ pub enum DeploymentError {
 	MissingContent,
 	HardLink(std::io::Error),
 	Copy(std::io::Error),
+	RemoveFailed(std::io::Error),
+	CreateDirectory(std::io::Error),
+	TraverseFailed,
 }
 
 macro_rules! hardlink {
@@ -59,23 +61,16 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 				instruction.1 = instruction.1.join(PathBuf::from(&s).file_name().expect("weird paths in source directive"));
 			},
 			SourceDirective::Find(s) => {
-				let mut queue = VecDeque::<PathBuf>::new();
-				queue.push_back(extracted_archive.to_path_buf());
-				'search: while let Some(p) = queue.pop_front() {
-					for entry in p.read_dir()? {
-						let entry = entry?;
-						if entry.file_name().to_str().expect("filename isn't unicode") == s {
-							instruction.0 = pathdiff::diff_paths(entry.path(), extracted_archive).unwrap();
-							break 'search;
-						}
-						if entry.path().is_dir() {
-							queue.push_back(entry.path());
-							continue;
-						}
+				for entry in walkdir::WalkDir::new(extracted_archive).into_iter() {
+					let entry = entry.expect("failed to get file entry for source directive find.").into_path();
+					if entry.is_dir() { continue; }
+					if entry.file_name().expect("filepath ends in \"..\"").to_str().expect("filename isn't unicode") == s {
+						instruction.0 = pathdiff::diff_paths(entry, extracted_archive).unwrap();
+						break
 					}
 				}
 			},
-			SourceDirective::FindRegExp(s) => {
+			SourceDirective::FindRegExp(_) => {
 				/* TODO: Regex */
 				todo!("FindRegExp not implemented yet!");
 			},
@@ -86,14 +81,23 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 }
 
 /// Cleans the given instance of all package files.
-pub async fn clean_deployment(options: &crate::CkanRsOptions, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
-	todo!();
+pub async fn clean_deployment(instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
+	for f in instance.tracked.get_all_files() {
+		let path = instance.game_dir().join(f);
+		if path.exists() {
+			std::fs::remove_file(path).map_err(DeploymentError::RemoveFailed)?;
+			/* TODO: Clean empty directories */
+		}
+	}
+
 	instance.tracked.clear();
+
+	Ok(())
 }
 
 /// Cleans the instance then links all required package files.
 pub async fn redeploy_packages(options: &crate::CkanRsOptions, db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
-	clean_deployment(options, instance).await?;
+	clean_deployment(instance).await?;
 
 	let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
 	
@@ -108,12 +112,15 @@ pub async fn redeploy_packages(options: &crate::CkanRsOptions, db: crate::MetaDB
 	
 		for (source, destination) in install_instructions {
 			/* TODO: Install Methods */
-			/* TODO: Handle directories */
-			if source.is_dir() {
-				todo!("directory source deployment")
+			for entry in walkdir::WalkDir::new(&source).into_iter() {
+				let entry = entry.map_err(|_| DeploymentError::TraverseFailed)?.into_path();
+				if entry.is_file() {
+					let final_destination = instance.game_dir().join(&destination);
+					std::fs::create_dir_all(&final_destination).map_err(DeploymentError::CreateDirectory)?;
+					hardlink!(&entry, &final_destination);
+					package_files.push(destination.to_string_lossy().to_string());
+				}
 			}
-			hardlink!(&source, &destination)?;
-			package_files.push(destination.to_string_lossy().to_string());
 		}
 
 		tracked_files.push((&package.identifier, package_files));

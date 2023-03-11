@@ -16,6 +16,7 @@ tar = "0.4.38"
 try_map = "0.3.1"
 petgraph = { version = "0.6.2", features = ["serde-1"] } 
 pathdiff = "0.2.1"
+walkdir = "2.3.2"
 
 [dev-dependencies]
 ckan-rs-test-utils = { path = "../ckan-rs-test-utils" }

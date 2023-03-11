@@ -22,4 +22,15 @@ impl TrackedFiles {
 	pub fn clear(&mut self) {
 		self.files.clear();
 	}
+
+	pub fn get_all_files(&self) -> Vec<&str> {
+		let mut v = Vec::<_>::new();
+		for f in self.files.values() {
+			for s in f {
+				v.push(s.as_str());
+			}
+		}
+		
+		v
+	}
 }
