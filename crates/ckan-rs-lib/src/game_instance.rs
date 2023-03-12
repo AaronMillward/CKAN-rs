@@ -13,6 +13,7 @@ pub struct GameInstance {
 	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
 	enabled_packages: Vec<ckan::PackageIdentifier>,
 	pub tracked: filetracker::TrackedFiles,
+	pub deployment_dir: std::path::PathBuf,
 }
 
 impl GameInstance {
@@ -36,7 +37,7 @@ impl GameInstance {
 		self.enabled_packages.clear();
 	}
 
-	pub fn new(game_root_directory: impl AsRef<std::path::Path>) -> Result<GameInstance, GameInstanceError>{
+	pub fn new(game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> Result<GameInstance, GameInstanceError>{
 		let game_root_directory = game_root_directory.as_ref();
 		std::fs::metadata(game_root_directory).map_err(GameInstanceError::RequiredFilesMissing)?; // Gives the user more info compared to using `game_root_directory.exists()`
 		
@@ -50,6 +51,7 @@ impl GameInstance {
 			compatible_ksp_versions: vec![ckan::KspVersion::try_from("1.12.3").unwrap()],
 			tracked: Default::default(),
 			enabled_packages: Default::default(),
+			deployment_dir
 		})
 	}
 }

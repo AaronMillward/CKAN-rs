@@ -8,7 +8,6 @@ async fn full_install() {
 	let tmp_dir = std::env::temp_dir();
 
 	let mut options = ckan_rs::CkanRsOptions::default();
-	options.set_deployment_dir(tmp_dir.join("deploy"));
 	options.set_download_dir(tmp_dir.join("downloads"));
 	
 	let db: ckan_rs::MetaDB = {
@@ -53,7 +52,7 @@ async fn full_install() {
 		eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 	}
 
-	let mut instance = GameInstance::new(tmp_dir.join("fake-game-dir")).unwrap();
+	let mut instance = GameInstance::new(tmp_dir.join("fake-game-dir"), tmp_dir.join("deployment")).unwrap();
 
 	instance.compatible_ksp_versions = compatible_ksp_versions;
 
@@ -74,11 +73,11 @@ async fn full_install() {
 	}
 
 	for package in packages {
-		ckan_rs::installer::content::extract_content_to_deployment(&options, package).unwrap();
+		ckan_rs::installer::content::extract_content_to_deployment(&options, &instance, package).unwrap();
 		instance.add_enabled_packages(package);
 		dbg!(&package.install);
 	}
 
-	ckan_rs::installer::deployment::redeploy_packages(&options, db, &mut instance).await.expect("deployment failed");
+	ckan_rs::installer::deployment::redeploy_packages(db, &mut instance).await.expect("deployment failed");
 
 }

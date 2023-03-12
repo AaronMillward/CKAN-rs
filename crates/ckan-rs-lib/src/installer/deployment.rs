@@ -110,14 +110,14 @@ pub async fn clean_deployment(instance: &mut crate::game_instance::GameInstance)
 }
 
 /// Cleans the instance then links all required package files.
-pub async fn redeploy_packages(options: &crate::CkanRsOptions, db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
+pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
 	clean_deployment(instance).await?;
 
 	let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
 	
 	for package in instance.get_enabled_packages() {
 		let package = db.get_from_unique_id(package).expect("package no longer exists in metadb.");
-		let path = super::content::get_package_deployment_path(options, &package.identifier);
+		let path = instance.get_package_deployment_path(package);
 		let path = path.exists().then(|| path).ok_or(DeploymentError::MissingContent)?;
 
 		let mut package_files = Vec::<String>::new();
