@@ -35,7 +35,7 @@ macro_rules! hardlink {
 fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Path>) -> Result<Vec<(PathBuf, PathBuf)>, std::io::Error> {
 	let extracted_archive = extracted_archive.as_ref();
 
-	let install_instructions = Vec::<(PathBuf, PathBuf)>::new();
+	let mut install_instructions = Vec::<(PathBuf, PathBuf)>::new();
 
 	if package.install.is_empty() {
 		/* "If no install sections are provided, a CKAN client must find 
@@ -55,6 +55,8 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 			/* TODO: Check if the path exists, is valid, traversal attempts */
 		};
 
+		let find_matches_files = directive.additional.iter().any(|e| matches!(e, crate::metadb::ckan::OptionalDirective::FindMatchesFiles(x) if *x));
+
 		match &directive.source {
 			SourceDirective::File(s) => {
 				instruction.0 = extracted_archive.join(PathBuf::from(&s));
@@ -63,18 +65,30 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 			SourceDirective::Find(s) => {
 				for entry in walkdir::WalkDir::new(extracted_archive).into_iter() {
 					let entry = entry.expect("failed to get file entry for source directive find.").into_path();
-					if entry.is_dir() { continue; }
+					if entry.is_file() && !find_matches_files { continue; }
 					if entry.file_name().expect("filepath ends in \"..\"").to_str().expect("filename isn't unicode") == s {
-						instruction.0 = pathdiff::diff_paths(entry, extracted_archive).unwrap();
+						instruction.0 = entry;
 						break
 					}
 				}
 			},
-			SourceDirective::FindRegExp(_) => {
-				/* TODO: Regex */
-				todo!("FindRegExp not implemented yet!");
+			SourceDirective::FindRegExp(s) => {
+				let regex = regex::Regex::new(s).expect("regex failed to compile.");
+
+				for entry in walkdir::WalkDir::new(extracted_archive).into_iter() {
+					let entry = entry.expect("failed to get file entry for source directive find.").into_path();
+					let path = pathdiff::diff_paths(&entry, extracted_archive).expect("pathdiff failed.");
+					if entry.is_file() && !find_matches_files { continue; }
+					if regex.is_match(&path.to_string_lossy()) {
+						instruction.1 = instruction.1.join(entry.file_name().unwrap());
+						instruction.0 = entry;
+						break
+					}
+				}
 			},
 		};
+
+		install_instructions.push(instruction)
 	}
 
 	Ok(install_instructions)
@@ -116,8 +130,8 @@ pub async fn redeploy_packages(options: &crate::CkanRsOptions, db: crate::MetaDB
 				let entry = entry.map_err(|_| DeploymentError::TraverseFailed)?.into_path();
 				if entry.is_file() {
 					let final_destination = instance.game_dir().join(&destination);
-					std::fs::create_dir_all(&final_destination).map_err(DeploymentError::CreateDirectory)?;
-					hardlink!(&entry, &final_destination);
+					std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
+					hardlink!(&entry, &final_destination).expect("hardlink failed.");
 					package_files.push(destination.to_string_lossy().to_string());
 				}
 			}

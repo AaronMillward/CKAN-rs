@@ -5,7 +5,11 @@ async fn full_install() {
 	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 
-	let options = ckan_rs::CkanRsOptions::default();
+	let tmp_dir = std::env::temp_dir();
+
+	let mut options = ckan_rs::CkanRsOptions::default();
+	options.set_deployment_dir(tmp_dir.join("deploy"));
+	options.set_download_dir(tmp_dir.join("downloads"));
 	
 	let db: ckan_rs::MetaDB = {
 		let p = env!("CARGO_MANIFEST_DIR").to_owned() + "/test-data/metadb.bin";
@@ -17,8 +21,9 @@ async fn full_install() {
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
 	
 	let requirements = vec![
+		InstallRequirement {identifier: "ModuleManager".to_string(), ..Default::default() },
 		// InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() }, /* 404s? my fault? */
-		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
+		// InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions.clone());
@@ -48,7 +53,7 @@ async fn full_install() {
 		eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 	}
 
-	let mut instance = GameInstance::new(env!("CARGO_MANIFEST_DIR").to_owned() + "/test-data/fake-game-dir").unwrap();
+	let mut instance = GameInstance::new(tmp_dir.join("fake-game-dir")).unwrap();
 
 	instance.compatible_ksp_versions = compatible_ksp_versions;
 
