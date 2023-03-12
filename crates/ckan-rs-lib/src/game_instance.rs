@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::metadb::ckan;
 
 pub mod filetracker;
@@ -11,7 +13,7 @@ pub enum GameInstanceError {
 pub struct GameInstance {
 	path: std::path::PathBuf,
 	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
-	enabled_packages: Vec<ckan::PackageIdentifier>,
+	enabled_packages: HashSet<ckan::PackageIdentifier>,
 	pub tracked: filetracker::TrackedFiles,
 	pub deployment_dir: std::path::PathBuf,
 }
@@ -19,22 +21,6 @@ pub struct GameInstance {
 impl GameInstance {
 	pub fn game_dir(&self) -> &std::path::Path {
 		&self.path
-	}
-
-	pub fn is_file_installable(&self, path: String) -> bool {
-		todo!()
-	}
-
-	pub fn get_enabled_packages(&self) -> &Vec<ckan::PackageIdentifier> {
-		&self.enabled_packages
-	}
-
-	pub fn add_enabled_packages(&mut self, package: impl AsRef<ckan::PackageIdentifier>) {
-		self.enabled_packages.push(package.as_ref().clone());
-	}
-
-	pub fn clear_enabled_packages(&mut self) {
-		self.enabled_packages.clear();
 	}
 
 	pub fn new(game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> Result<GameInstance, GameInstanceError>{
@@ -53,5 +39,23 @@ impl GameInstance {
 			enabled_packages: Default::default(),
 			deployment_dir
 		})
+	}
+
+	/* Package Management */
+
+	pub fn get_enabled_packages(&self) -> &HashSet<ckan::PackageIdentifier> {
+		&self.enabled_packages
+	}
+
+	pub fn enable_package(&mut self, package: impl AsRef<ckan::PackageIdentifier>) {
+		self.enabled_packages.insert(package.as_ref().clone());
+	}
+
+	pub fn disable_package(&mut self, package: impl AsRef<ckan::PackageIdentifier>) {
+		self.enabled_packages.remove(package.as_ref());
+	}
+
+	pub fn clear_enabled_packages(&mut self) {
+		self.enabled_packages.clear();
 	}
 }

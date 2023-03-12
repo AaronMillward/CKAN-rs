@@ -19,14 +19,16 @@ fn resolve_dependency() {
 		InstallRequirement {identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
-	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions);
+	let mut resolver = ResolverBuilder::new(&db)
+		.add_package_requirements(requirements)
+		.compatible_ksp_versions(compatible_ksp_versions)
+		.build();
 
 	loop {
 		match resolver.attempt_resolve() {
-			ResolverStatus::Complete(new_packages) => {
-				dbg!(resolver.get_complete_graph().unwrap());
+			ResolverStatus::Complete => {
 				eprintln!("Final Package List:");
-				for package in new_packages {
+				for package in resolver.finalize().expect("resolver complete status but not complete flagged").get_new_packages() {
 					eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 				}
 				break;

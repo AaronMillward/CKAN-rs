@@ -25,12 +25,16 @@ async fn full_install() {
 		// InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
 	];
 
-	let mut resolver = RelationshipResolver::new(&db, &requirements, None, compatible_ksp_versions.clone());
 
+	let mut resolver = ResolverBuilder::new(&db)
+		.compatible_ksp_versions(compatible_ksp_versions.clone())
+		.add_package_requirements(requirements)
+		.build();
+		
 	let packages = loop {
 		match resolver.attempt_resolve() {
-			ResolverStatus::Complete(new_packages) => {
-				break new_packages;
+			ResolverStatus::Complete => {
+				break resolver.finalize().expect("resolve not complete.").get_new_packages();
 			},
 			ResolverStatus::DecisionsRequired(infos) => {
 				for info in infos {
@@ -74,7 +78,7 @@ async fn full_install() {
 
 	for package in packages {
 		ckan_rs::installer::content::extract_content_to_deployment(&options, &instance, package).unwrap();
-		instance.add_enabled_packages(package);
+		instance.enable_package(package);
 		dbg!(&package.install);
 	}
 
