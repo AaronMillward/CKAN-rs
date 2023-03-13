@@ -8,13 +8,15 @@ async fn full_install() {
 	let tmp_dir = std::env::temp_dir();
 
 	let mut options = ckan_rs::CkanRsOptions::default();
-	options.set_download_dir(tmp_dir.join("downloads"));
 	
-	let db: ckan_rs::MetaDB = {
-		let p = env!("CARGO_MANIFEST_DIR").to_owned() + "/test-data/metadb.bin";
-		eprintln!("reading db from {}", p);
-		ckan_rs_test_utils::get_metadb(Some(std::path::PathBuf::from(p)))
-		// tokio::task::spawn_blocking(|| ckan_rs_test_utils::get_metadb(None)).await.expect("failed to generate metadb.")
+	let db = {
+		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&options) {
+			db
+		} else {
+			let db = tokio::task::spawn_blocking(ckan_rs::metadb::generate_latest).await.expect("failed to join task.").expect("failed to generate metadb.");
+			db.save_to_disk(&options).expect("failed to save metadb.");
+			db
+		}
 	};
 
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];

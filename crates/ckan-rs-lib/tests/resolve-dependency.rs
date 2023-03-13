@@ -3,11 +3,16 @@ fn resolve_dependency() {
 	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 	
+	let mut options = ckan_rs::CkanRsOptions::default();
+
 	let db = {
-		let p = env!("CARGO_MANIFEST_DIR").to_owned() + "/test-data/metadb.bin";
-		eprintln!("reading db from {}", p);
-		ckan_rs_test_utils::get_metadb(Some(std::path::PathBuf::from(p)))
-		// ckan_rs_test_utils::get_metadb(None)
+		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&options) {
+			db
+		} else {
+			let db = ckan_rs::metadb::generate_latest().expect("failed to generate metadb.");
+			db.save_to_disk(&options).expect("failed to save metadb.");
+			db
+		}
 	};
 
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
