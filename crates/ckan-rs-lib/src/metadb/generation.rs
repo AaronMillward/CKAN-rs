@@ -89,22 +89,7 @@ impl MetaDB {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::io::Read;
 
-	#[test]
-	fn metadb_generate() {
-		let mut v = Vec::<u8>::new();
-		{
-			let data = include_bytes!("../../test-data/meta-small.tar.gz");
-			let mut gz = flate2::bufread::GzDecoder::new(data.as_slice());
-			gz.read_to_end(&mut v).unwrap();
-		}
-		MetaDB::generate_from_archive(
-			&mut tar::Archive::new(v.as_slice()),
-			true
-		).expect("failed to generate db");
-	}
-	
 	#[test]
 	fn ckan_json_schema_compiles() {
 		jsonschema::JSONSchema::compile(

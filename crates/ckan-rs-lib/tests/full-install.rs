@@ -5,9 +5,7 @@ async fn full_install() {
 	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 
-	let tmp_dir = std::env::temp_dir();
-
-	let mut options = ckan_rs::CkanRsOptions::default();
+	let options = ckan_rs::CkanRsOptions::default();
 	
 	let db = {
 		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&options) {
@@ -58,8 +56,11 @@ async fn full_install() {
 		eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 	}
 
-	let mut instance = GameInstance::new(tmp_dir.join("fake-game-dir"), tmp_dir.join("deployment")).unwrap();
-
+	let mut instance = {
+		let instance_path = ckan_rs_test_utils::create_fake_game_instance().expect("failed to create test game instance.");
+		GameInstance::new(&instance_path, instance_path.parent().unwrap().join("deployment")).unwrap()
+	};
+	
 	instance.compatible_ksp_versions = compatible_ksp_versions;
 
 	let client = reqwest::Client::builder()
