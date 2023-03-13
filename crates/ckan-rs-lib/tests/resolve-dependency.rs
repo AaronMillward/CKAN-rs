@@ -3,7 +3,7 @@ fn resolve_dependency() {
 	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 	
-	let mut options = ckan_rs::CkanRsOptions::default();
+	let options = ckan_rs::CkanRsOptions::default();
 
 	let db = {
 		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&options) {
@@ -18,10 +18,10 @@ fn resolve_dependency() {
 	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
 	
 	let requirements = vec![
-		InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() },
-		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
-		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
-		InstallRequirement {identifier: "Parallax".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "MechJeb2".to_string(), required_version: PackageVersionBounds::Explicit(PackageVersion::new("0:2.12.0.0").expect("failed to create version string.")) },
+		InstallRequirement {identifier: "ProceduralParts".to_string(), required_version: PackageVersionBounds::Explicit(PackageVersion::new("0:v2.2.0").expect("failed to create version string.")) },
+		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), required_version: PackageVersionBounds::Explicit(PackageVersion::new("0:1.26.5").expect("failed to create version string.")) },
+		// InstallRequirement {identifier: "Parallax".to_string(), ..Default::default() },
 	];
 
 	let mut resolver = ResolverBuilder::new(&db)
@@ -32,10 +32,40 @@ fn resolve_dependency() {
 	loop {
 		match resolver.attempt_resolve() {
 			ResolverStatus::Complete => {
-				eprintln!("Final Package List:");
-				for package in resolver.finalize().expect("resolver complete status but not complete flagged").get_new_packages() {
-					eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
+				let packages = resolver.finalize().expect("resolver complete status but not complete flagged").get_new_packages();
+
+				/* XXX: Potential false positive if the dependency list of these mods changes. */
+				let expected = [
+					// "Parallax",
+					// "Kopernicus",
+					// "Parallax-Textures",
+					// "Parallax-StockTextures",
+					// "Parallax-Scatter-Textures",
+
+					"KSPInterstellarExtended",
+					"InterstellarFuelSwitch-Core",
+					"TweakScale",
+					"ModuleManager",
+
+					"ProceduralParts",
+					"ModuleManager",
+
+					"MechJeb2",
+					"ModuleManager",
+				];
+
+				let mut missing = Vec::<String>::new();
+
+				for id in expected {
+					if !packages.iter().any(|p| p.identifier == id) {
+						missing.push(id.to_string());
+					}
 				}
+
+				if !missing.is_empty() {
+					panic!("missing expected package(s) {:?}", missing)
+				}
+
 				break;
 			},
 			ResolverStatus::DecisionsRequired(infos) => {

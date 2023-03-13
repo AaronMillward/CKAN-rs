@@ -60,7 +60,6 @@ impl<'db> ResolverBuilder<'db> {
 			graph.add_edge(meta_node, new, EdgeData::Depends(m.required_version.clone()));
 		}
 
-		ResolverProcessor::new(self.metadb, graph, self.compatible_ksp_versions)
-		
+		ResolverProcessor::new(self.metadb, graph, meta_node, self.compatible_ksp_versions)
 	}
 }

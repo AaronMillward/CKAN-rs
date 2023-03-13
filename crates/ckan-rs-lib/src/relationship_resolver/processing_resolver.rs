@@ -68,22 +68,16 @@ impl<'db> ResolverProcessor<'db> {
 	/// - `metadb`: `MetaDB` containing the packages to resolve with.
 	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
 	/// - `compatible_ksp_versions`: Packages for these versions of the game can be installed.
-	pub(super) fn new(metadb: &'db MetaDB, dep_graph: DependencyGraph, compatible_ksp_versions: Vec<KspVersion>) -> Self {
-		let mut resolver = ResolverProcessor {
+	pub(super) fn new(metadb: &'db MetaDB, dep_graph: DependencyGraph, meta_node: NodeIndex, compatible_ksp_versions: Vec<KspVersion>) -> Self {
+		ResolverProcessor {
 			metadb,
 			decisions: Default::default(),
 			compatible_ksp_versions,
 			dep_graph,
-			meta_node: Default::default(),
+			meta_node,
 			compatible_candidates: Default::default(),
 			is_complete: false,
-		};
-
-		/* TODO: Get existing meta node if exists */
-		let meta = resolver.dep_graph.add_node(NodeData::Meta);
-		resolver.meta_node = meta;
-
-		resolver
+		}
 	}
 
 	/// Run the resolver process until complete or stopped by a decision or failure.
