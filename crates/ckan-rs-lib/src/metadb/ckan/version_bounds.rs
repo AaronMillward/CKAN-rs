@@ -1,22 +1,14 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub enum VersionBounds<T>
 where T: std::cmp::PartialEq + std::cmp::Ord + std::clone::Clone,
 {
-	Any,
+	#[default] Any,
 	Explicit(T),
 	MinOnly(T),
 	MaxOnly(T),
 	MinMax(T, T),
-}
-
-impl<T> Default for VersionBounds<T>
-where T: std::cmp::PartialEq + std::cmp::Ord + std::clone::Clone,
-{
-	fn default() -> Self {
-		VersionBounds::Any
-	}
 }
 
 impl<T> VersionBounds<T>

@@ -27,7 +27,7 @@ pub fn extract_content_to_deployment(options: &crate::CkanRsOptions, instance: &
 		if ct == "application/zip" {
 			let download_path = super::download::get_package_download_path(options, &package.identifier);
 			let deploy_path = instance.get_package_deployment_path(package);
-			let mut zip = std::fs::File::open(&download_path)
+			let mut zip = std::fs::File::open(download_path)
 				.map_err(ContentError::IO)
 				.and_then(|f|
 					zip::ZipArchive::new(f).map_err(ContentError::Zip)

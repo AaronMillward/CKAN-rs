@@ -41,17 +41,17 @@ impl MetaDB {
 		self.get_from_unique_id(unique)
 	}
 
-	pub fn load_from_disk(options: &crate::CkanRsOptions) -> Result<MetaDB, ()> {
+	pub fn load_from_disk(options: &crate::CkanRsOptions) -> crate::Result<MetaDB> {
 		let path = options.data_dir().join("metadb.bin");
-		let mut f = std::fs::File::open(path).map_err(|_|())?;
+		let mut f = std::fs::File::open(path)?;
 		let mut v = Vec::<u8>::new();
 		f.read_to_end(&mut v).unwrap();
-		bincode::deserialize::<MetaDB>(&v).map_err(|_|())
+		bincode::deserialize::<MetaDB>(&v).map_err(|_| crate::error::Error::Parse("Deserialize failed".to_string()))
 	}
 
 	pub fn save_to_disk(&self, options: &crate::CkanRsOptions) -> crate::Result<()> {
 		let path = options.data_dir().join("metadb.bin");
-		let data = bincode::serialize(self).map_err(|e| crate::error::Error::Parse("Serialize failed".to_string()))?;
+		let data = bincode::serialize(self).map_err(|_| crate::error::Error::Parse("Serialize failed".to_string()))?;
 		let mut f = std::fs::File::create(path)?;
 		f.write_all(&data)?;
 		Ok(())

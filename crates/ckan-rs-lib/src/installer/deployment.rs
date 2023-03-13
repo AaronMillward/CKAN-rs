@@ -118,7 +118,7 @@ pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_ins
 	for package in instance.get_enabled_packages() {
 		let package = db.get_from_unique_id(package).expect("package no longer exists in metadb.");
 		let path = instance.get_package_deployment_path(package);
-		let path = path.exists().then(|| path).ok_or(DeploymentError::MissingContent)?;
+		let path = path.exists().then_some(path).ok_or(DeploymentError::MissingContent)?;
 
 		let mut package_files = Vec::<String>::new();
 
