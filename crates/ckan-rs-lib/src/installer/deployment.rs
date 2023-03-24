@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::path::Path;
 
 use crate::Package;
+use crate::metadb::ckan::InstallDirective;
 use crate::metadb::ckan::PackageIdentifier;
 use crate::metadb::ckan::SourceDirective;
 
@@ -24,32 +25,14 @@ pub enum DeploymentError {
 	TraverseFailed,
 }
 
-macro_rules! hardlink {
-	($source:expr, $destination:expr) => {
-		std::fs::hard_link($source, $destination).map_err(DeploymentError::HardLink)
-	};
-}
-
 /// Deciphers the install directives into a simpler (`source`, `destination`) tuple.
 /// where `source` is an absolute path and `destination` is relative to the game directory.
 fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Path>) -> Result<Vec<(PathBuf, PathBuf)>, std::io::Error> {
-	let extracted_archive = extracted_archive.as_ref();
+	fn process_directive(directive: &InstallDirective, extracted_archive: &Path) -> Vec<(PathBuf, PathBuf)> {
+		let mut instructions: Vec<(PathBuf, PathBuf)> = Default::default();
 
-	let mut install_instructions = Vec::<(PathBuf, PathBuf)>::new();
-
-	if package.install.is_empty() {
-		/* "If no install sections are provided, a CKAN client must find 
-		the top-most directory in the archive that matches the module identifier,
-		and install that with a target of GameData." */
-		/* Sounds like the `find` source directive? */
-		todo!()
-	}
-
-	for directive in &package.install {
-		let mut instruction: (PathBuf, PathBuf) = Default::default();
-
-		instruction.1 = if directive.install_to == "GameRoot" {
-			todo!("GameRoot install directive not yet supported")
+		let destination = if directive.install_to == "GameRoot" {
+			PathBuf::from("")
 		} else {
 			PathBuf::from(&directive.install_to)
 			/* TODO: Check if the path exists, is valid, traversal attempts */
@@ -57,17 +40,36 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 
 		let find_matches_files = directive.additional.iter().any(|e| matches!(e, crate::metadb::ckan::OptionalDirective::FindMatchesFiles(x) if *x));
 
+		/* TODO: Other optional directives */
+
 		match &directive.source {
 			SourceDirective::File(s) => {
-				instruction.0 = extracted_archive.join(PathBuf::from(&s));
-				instruction.1 = instruction.1.join(PathBuf::from(&s).file_name().expect("weird paths in source directive"));
+				instructions.push((
+						extracted_archive.join(PathBuf::from(&s)),
+						destination.join(PathBuf::from(&s).file_name().expect("weird paths in source directive"))
+				));
 			},
 			SourceDirective::Find(s) => {
 				for entry in walkdir::WalkDir::new(extracted_archive).into_iter() {
-					let entry = entry.expect("failed to get file entry for source directive find.").into_path();
+					let entry = entry.unwrap().into_path();
 					if entry.is_file() && !find_matches_files { continue; }
 					if entry.file_name().expect("filepath ends in \"..\"").to_str().expect("filename isn't unicode") == s {
-						instruction.0 = entry;
+						if entry.is_file() {
+							instructions.push((
+								entry,
+								destination.join(s)
+							));
+						} else if entry.is_dir() {
+							for entry2 in walkdir::WalkDir::new(&entry).into_iter() {
+								let entry2 = entry2.unwrap().into_path();
+								if entry2.is_file() {
+									instructions.push((
+										entry2.clone(),
+										destination.join(pathdiff::diff_paths(&entry2, &entry.with_file_name("")).unwrap())
+									));
+								}
+							}
+						}
 						break
 					}
 				}
@@ -80,15 +82,39 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 					let path = pathdiff::diff_paths(&entry, extracted_archive).expect("pathdiff failed.");
 					if entry.is_file() && !find_matches_files { continue; }
 					if regex.is_match(&path.to_string_lossy()) {
-						instruction.1 = instruction.1.join(entry.file_name().unwrap());
-						instruction.0 = entry;
+						instructions.push((
+							entry.clone(),
+							destination.join(entry.file_name().unwrap()),
+						));
 						break
 					}
 				}
 			},
 		};
 
-		install_instructions.push(instruction)
+		instructions
+	}
+
+	let extracted_archive = extracted_archive.as_ref();
+
+	let mut install_instructions = Vec::<(PathBuf, PathBuf)>::new();
+
+	let directives = if package.install.is_empty() {
+		 /* "If no install sections are provided, a CKAN client must find 
+		 the top-most directory in the archive that matches the module identifier,
+		 and install that with a target of GameData." */
+		 /* Sounds like the `find` source directive? */
+		std::borrow::Cow::Owned(vec![InstallDirective::new(
+			SourceDirective::Find(package.identifier.identifier.clone()),
+			"GameData".to_string(),
+			Default::default()
+		)])
+	} else {
+		std::borrow::Cow::Borrowed(&package.install)
+	};
+
+	for directive in directives.iter() {
+		install_instructions.append(&mut process_directive(directive, extracted_archive))
 	}
 
 	Ok(install_instructions)
@@ -126,16 +152,11 @@ pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_ins
 	
 		for (source, destination) in install_instructions {
 			/* TODO: Install Methods */
-			for entry in walkdir::WalkDir::new(&source).into_iter() {
-				let entry = entry.map_err(|_| DeploymentError::TraverseFailed)?.into_path();
-				if entry.is_file() {
-					let final_destination = instance.game_dir().join(&destination);
-					std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
-					hardlink!(&entry, &final_destination).expect("hardlink failed.");
-					package_files.push(destination.to_string_lossy().to_string());
-				}
+				let final_destination = instance.game_dir().join(&destination);
+				std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
+				std::fs::hard_link(&source, &final_destination).map_err(DeploymentError::HardLink).expect("hardlink failed.");
+				package_files.push(destination.to_string_lossy().to_string());
 			}
-		}
 
 		tracked_files.push((&package.identifier, package_files));
 	}

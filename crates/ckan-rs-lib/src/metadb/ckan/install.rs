@@ -1,13 +1,13 @@
 use serde::*;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SourceDirective {
 	File(String),
 	Find(String),
 	FindRegExp(String),
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OptionalDirective {
 	As(String),
 	Filter(Vec<String>),
@@ -17,7 +17,7 @@ pub enum OptionalDirective {
 	FindMatchesFiles(bool),
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallDirective {
 	pub source: SourceDirective,
 	pub install_to: String,
