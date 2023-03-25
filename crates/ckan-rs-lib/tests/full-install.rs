@@ -23,6 +23,7 @@ async fn full_install() {
 		InstallRequirement {identifier: "ModuleManager".to_string(), ..Default::default() },
 		// InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() }, /* 404s? my fault? */
 		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
+		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
 	];
 
 
