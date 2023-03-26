@@ -4,6 +4,7 @@ use serde::de::DeserializeOwned;
 use try_map::FallibleMapExt;
 use super::*;
 
+/// Handles the "one or many" style value used in ckan package jsons.
 fn get_one_or_many_string(obj: &serde_json::Value, key: &str) -> crate::Result<Vec<String>> {
 	let v = obj.get(key).ok_or_else(|| crate::Error::Parse(format!("key {} missing", key)))?;
 	match v {
@@ -123,42 +124,24 @@ pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relati
 
 	let mut relationships = Vec::<Relationship>::new();
 
-	if let Some(arr) = v.as_array() {
-		for elem in arr {
-			/* Process each relationship */
-			if let Some(obj) = elem.as_object() {
-				let relationship = {
-					/* any_of */
-					if let Some(f) = obj.get("any_of") {
-						if let Some(arr) = f.as_array() {
-							let mut ships = Vec::<PackageDescriptor>::new();
-							for o in arr {
-								if o.is_object() {
-									if let Ok(val) = PackageDescriptor::from_json(o) {
-										ships.push(val);
-									}
-								} else {
-									return Err(Parse("any_of array must contain only objects".to_string()));
-								}
-							}
-							Relationship::AnyOf(ships)
-						} else {
-							return Err(Parse("any_of constraint must be an array".to_string()));
-						}
-					/* single */
-					} else if obj.get("name").is_some() {
-						Relationship::One(PackageDescriptor::from_json(elem)?)
-					} else {
-						return Err(Parse("relationship object must be a relationship or any_of constraint".to_string()));
-					}
-				};
-				relationships.push(relationship);
+	let v = v.as_array().ok_or(Parse("must be array".to_string()))?;
+	for element in v {
+		let obj = element.as_object().ok_or(Parse("array elements must be objects".to_string()))?;
+		let relationship = 
+			if let Some(f) = obj.get("any_of") {
+				let arr = f.as_array().ok_or(Parse("any_of constraint must be an array".to_string()))?;
+				let mut ships = Vec::<PackageDescriptor>::new();
+				for o in arr {
+					if !o.is_object() { return Err(Parse("any_of array must contain only objects".to_string())); }
+					ships.push(PackageDescriptor::from_json(o)?);
+				}
+				Relationship::AnyOf(ships)
+			} else if obj.get("name").is_some() {
+				Relationship::One(PackageDescriptor::from_json(element)?)
 			} else {
-				return Err(Parse("array elements must be objects".to_string()));
-			}
-		}
-	} else {
-		return Err(Parse("must be array".to_string()));
+				return Err(Parse("relationship object must be a relationship or any_of constraint".to_string()));
+			};
+		relationships.push(relationship);
 	}
 
 	Ok(relationships)

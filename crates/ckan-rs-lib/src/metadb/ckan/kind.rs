@@ -1,9 +1,11 @@
 use serde::*;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Kind {
-	Package,
+	/// A normal installable module.
+	#[default] Package,
+	/// A distributable .ckan file that has relationships to other mods while having no download of its own.
 	MetaPackage,
-	Dlc,
+	/// A paid expansion from SQUAD, which CKAN can detect but not install. Also has no download.
+	DLC,
 }
-impl Default for Kind { fn default() -> Self { Self::Package } }

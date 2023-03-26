@@ -5,6 +5,8 @@ async fn full_install() {
 	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::ckan::*;
 
+	env_logger::builder().is_test(true).try_init().expect("failed to create logger.");
+
 	let options = ckan_rs::CkanRsOptions::default();
 	
 	let db = {
@@ -41,20 +43,20 @@ async fn full_install() {
 				for info in infos {
 					let mut options = info.options.clone();
 					options.sort(); /* We want to always choses the same option */
-					eprintln!("choosing `{}` from options {:?} required by `{}`", &info.options[0], &info.options, info.source);
+					log::info!("choosing `{}` from options {:?} required by `{}`", &info.options[0], &info.options, info.source);
 					resolver.add_decision(&info.options[0]);
 				}
 			},
 			ResolverStatus::Failed(fails) => {
-				eprintln!("RESOLVER FAILS DUMP\n{:?}", fails);
+				log::error!("RESOLVER FAILS DUMP\n{:?}", fails);
 				panic!("resolver failed."); 
 			},
 		}
 	};
 
-	eprintln!("Final Package List:");
+	log::info!("Final Package List:");
 	for package in &packages {
-		eprintln!("\tID: {} VERSION: {:?}", package.identifier, package.version);
+		log::info!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 	}
 
 	let mut instance = {
@@ -83,9 +85,7 @@ async fn full_install() {
 	for package in packages {
 		ckan_rs::installer::content::extract_content_to_deployment(&options, &instance, package).unwrap();
 		instance.enable_package(package);
-		dbg!(&package.install);
 	}
 
 	ckan_rs::installer::deployment::redeploy_packages(db, &mut instance).await.expect("deployment failed");
-
 }

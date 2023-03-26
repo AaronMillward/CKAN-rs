@@ -18,6 +18,7 @@ use std::collections::HashSet;
 use std::io::{Read, Write};
 use serde::{Serialize, Deserialize};
 
+/// A database of packages that can be installed to the game.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MetaDB {
 	packages: HashSet<ckan::Package>,

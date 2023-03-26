@@ -6,11 +6,15 @@ use crate::Error::Parse;
 fn get_latest_archive() -> crate::Result<Vec<u8>> {
 	let mut v = Vec::<u8>::new();
 	/* TODO: Async */
+	/* TODO: Latest archive URL not hardcoded instead in options */
+	log::trace!("Downloading latest MetaDB.");
 	reqwest::blocking::get("https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz")?.read_to_end(&mut v)?;
 	Ok(v)
 }
 
+/// Download and then generate the latest MetaDB.
 pub fn generate_latest() -> crate::Result<MetaDB> {
+	log::trace!("Generating latest MetaDB.");
 	let archive_data = get_latest_archive()?;
 	let mut gz = flate2::bufread::GzDecoder::new(archive_data.as_slice());
 	let mut v = Vec::<u8>::new();
@@ -23,40 +27,41 @@ pub fn generate_latest() -> crate::Result<MetaDB> {
 
 impl MetaDB {
 	/// Creates a new MetaDB using a tar archive.
-	/// # Parameters
+	/// # Arguments
 	/// - `archive` - A tarball containing the metadb json files, should *not* be compressed.
 	/// - `do_validation` - Usually enabled when the repo can't be trusted to validate their ckans. should be `false` for most cases as it is slow.
 	pub fn generate_from_archive<R>(archive: &mut tar::Archive<R>, do_validation: bool) -> crate::Result<Self>
 	where R: std::io::Read
 	{
+		log::trace!("Generating MetaDB from given archive.");
 		/* TODO: Determine if this is IO or CPU bound causing it to take 15 sec to generate. */
 
 		Ok(Self {
 			packages: {
 				let mut v = HashSet::<Package>::new();
 
-				let compiled_schema = if do_validation {
-					Some(
-						jsonschema::JSONSchema::compile(&serde_json::from_str(include_str!("CKAN-json.schema")).expect("schema isn't valid json")).expect("schema isn't invalid")
-					)
-				} else {
-					None
-				};
+				let compiled_schema = do_validation.then(||
+					jsonschema::JSONSchema::compile(
+						&serde_json::from_str(
+							include_str!("CKAN-json.schema")
+						).expect("schema should be valid json.")
+					).expect("schema should compile.")
+				);
 
-				for (i, e) in archive.entries()?.enumerate() {
-					let mut e = e.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
+				for (i, entry) in archive.entries()?.enumerate() {
+					let mut entry = entry.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
 
-					if e.size() == 0 {
+					if entry.size() == 0 {
 						continue;
 					}
 
 					let json = {
-						let mut b = Vec::<u8>::new();
-						e.read_to_end(&mut b)?;
-						match serde_json::from_slice::<serde_json::Value>(&b) {
+						let mut buffer = Vec::<u8>::new();
+						entry.read_to_end(&mut buffer)?;
+						match serde_json::from_slice::<serde_json::Value>(&buffer) {
 							Ok(v) => v,
 							Err(e) => {
-								eprintln!("Couldn't process entry {} in metadb, failed to deserialize as JSON: {}", i, e);
+								log::warn!("Couldn't process entry {} in metadb archive, failed to deserialize as JSON: {}", i, e);
 								continue;
 							},
 						}
@@ -64,7 +69,7 @@ impl MetaDB {
 					
 					if let Some(schema) = &compiled_schema {
 						if !schema.is_valid(&json) {
-							eprintln!("Couldn't process entry {} in metadb, does not match schema", i);
+							log::warn!("Couldn't process entry {} in metadb, it does not match the schema", i);
 							continue;
 						}
 					}
@@ -73,7 +78,7 @@ impl MetaDB {
 						let ckan : Package = match Package::read_from_json(json) {
 							Ok(v) => v,
 							Err(e) => {
-								eprintln!("Couldn't process entry {} in metadb: {}", i, e);
+								log::warn!("Couldn't process entry {} in metadb, failed to create package from JSON: {}", i, e);
 								continue;
 							},
 						};

@@ -3,7 +3,7 @@ use super::{*, mod_version::PackageVersion};
 
 /// A unique identifier for packages.
 /// 
-/// Mainly used as an index into `MetaDB`.
+/// Mainly used as an index into [`crate::MetaDB`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct PackageIdentifier {
 	pub identifier: String,
@@ -71,6 +71,7 @@ pub enum Relationship {
 }
 
 impl Relationship {
+	/* TODO: Iterator */
 	/// Convienience function to collapse this relationship into a vector
 	pub fn as_vec(&self) -> Vec<&PackageDescriptor> {
 		match self {

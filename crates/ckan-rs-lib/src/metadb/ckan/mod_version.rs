@@ -7,6 +7,7 @@ pub struct PackageVersion {
 }
 
 impl PackageVersion {
+	/* TODO: impl AsRef<str> */
 	pub fn new(version: &str) -> crate::Result<Self> {
 		/* FIXME: version can be *any* string so this method assumes version doesn't contain a ':' */
 		let spl: Vec<&str> = version.splitn(2,':').collect();

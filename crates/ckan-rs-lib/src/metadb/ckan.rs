@@ -5,11 +5,10 @@ use serde::*;
 
 /* CKAN */
 
-/// A `.ckan` file containing mod info
+/// A `.ckan` file containing mod info.
 /// 
 /// We use the term "Package" instead of "Module" due to the overlap with rust's keywords.
-/// 
-// We're not using serde for this thing because it's way to involved and limited. use `read_from_json` associated function instead.
+/* NOTE: We don't use serde's deserialize to import the .ckan files because it's way to involved and limited. use `read_from_json` associated function instead. */
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Package {
 	/* Required Fields */
@@ -83,7 +82,7 @@ impl AsRef<PackageIdentifier> for Package {
 }
 
 impl Package {
-	/// Checks if the given packages conflict with each other
+	/// Checks if the given packages conflict with each other.
 	pub fn do_packages_conflict(lhs: &Self, rhs: &Self) -> bool {
 		let mut conflicts = false;
 		for con in &lhs.conflicts {

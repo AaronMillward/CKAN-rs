@@ -16,13 +16,19 @@ use crate::metadb::ckan::PackageIdentifier;
 use crate::metadb::ckan::SourceDirective;
 use crate::metadb::ckan::OptionalDirective;
 
-/// Cleans the instance then links all required package files.
+/// Cleans the instance of deployed files then link all required package files.
+/// 
+/// # Arguments
+/// - `db` - The package database to reference for packages.
+/// - `instance` - The instance to redeploy packages on.
 pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
+	log::trace!("Redeploying packages for instance at {}", instance.game_dir().display());
 	clean_deployment(instance).await?;
 
 	let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
 	
 	for package in instance.get_enabled_packages() {
+		log::trace!("Deploying package {}", package);
 		let package = db.get_from_unique_id(package).expect("package no longer exists in metadb.");
 		let path = instance.get_package_deployment_path(package);
 		let path = path.exists().then_some(path).ok_or(DeploymentError::MissingContent)?;
@@ -33,11 +39,11 @@ pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_ins
 	
 		for (source, destination) in install_instructions {
 			/* TODO: Install Methods */
-				let final_destination = instance.game_dir().join(&destination);
-				std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
-				std::fs::hard_link(&source, &final_destination).map_err(DeploymentError::HardLink).expect("hardlink failed.");
-				package_files.push(destination.to_string_lossy().to_string());
-			}
+			let final_destination = instance.game_dir().join(&destination);
+			std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
+			std::fs::hard_link(&source, &final_destination).map_err(DeploymentError::HardLink).expect("hardlink failed.");
+			package_files.push(destination.to_string_lossy().to_string());
+		}
 
 		tracked_files.push((&package.identifier, package_files));
 	}
@@ -52,7 +58,12 @@ pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_ins
 }
 
 /// Cleans the given instance of all package files.
+/// # Arguments
+/// - `instance` - The instance to clean.
+/// # Errors
+/// Potential IO Errors when removing files.
 pub async fn clean_deployment(instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
+	log::trace!("Clearing deployed packages from instance at {}", instance.game_dir().display());
 	for f in instance.tracked.get_all_files() {
 		let path = instance.game_dir().join(f);
 		if path.exists() {
@@ -68,7 +79,10 @@ pub async fn clean_deployment(instance: &mut crate::game_instance::GameInstance)
 
 /// Deciphers the install directives into a simpler (`source`, `destination`) tuple.
 /// where `source` is an absolute path and `destination` is relative to the game directory.
+/// 
+/// Walks directories in directives to generate file only instructions for easier linking.
 fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Path>) -> Result<Vec<(PathBuf, PathBuf)>, std::io::Error> {
+	log::trace!("Getting install instructions for package {}", package.identifier);
 	let extracted_archive = extracted_archive.as_ref();
 
 	let mut install_instructions = Vec::<(PathBuf, PathBuf)>::new();
@@ -94,6 +108,7 @@ fn get_install_instructions(package: &Package, extracted_archive: impl AsRef<Pat
 	Ok(install_instructions)
 }
 
+/// Converts a single [`InstallDirective`] for [`get_install_instructions`].
 fn process_directive(directive: &InstallDirective, extracted_archive: &Path) -> Vec<(PathBuf, PathBuf)> {
 	let mut instructions: Vec<(PathBuf, PathBuf)> = Default::default();
 
@@ -145,6 +160,13 @@ fn process_directive(directive: &InstallDirective, extracted_archive: &Path) -> 
 			}
 		},
 	};
+
+	/* NOTE: A directive wouldn't exist if it didn't do anything so this represents an error in the above process or in the import of the directive. */
+	if instructions.is_empty() {
+		log::error!("Install directive provided no instructions {:?}", directive);
+		/* TODO: Error not panic */
+		panic!("install directive provided no instructions. {:?}", directive);
+	}
 
 	instructions
 }
