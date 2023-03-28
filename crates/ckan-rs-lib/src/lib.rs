@@ -14,11 +14,11 @@ pub use error::Error;
 
 pub mod metadb;
 pub use metadb::MetaDB;
-pub use metadb::ckan::Package;
+pub use metadb::package::Package;
 
 pub mod config;
-pub use config::CkanRsOptions;
+pub use config::CkanRsConfig;
 
-pub mod installer;
+pub mod installation;
 pub mod relationship_resolver;
 pub mod game_instance;

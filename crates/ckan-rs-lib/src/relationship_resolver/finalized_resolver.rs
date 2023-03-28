@@ -23,7 +23,7 @@ impl ResolverFinalized {
 		self.dep_graph
 	}
 
-	pub fn get_new_packages(&self) -> Vec<crate::metadb::ckan::PackageIdentifier> {
+	pub fn get_new_packages(&self) -> Vec<crate::metadb::package::PackageIdentifier> {
 		self.candidates.iter().map(|candidate| {
 			/* XXX: Assume candidate is a `Candidate` node */
 			if let NodeData::Candidate(_, data) = &self.dep_graph[*candidate] {

@@ -3,7 +3,7 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::metadb::*;
-use crate::metadb::ckan::*;
+use crate::metadb::package::*;
 use petgraph::prelude::*;
 
 mod dependency_graph;

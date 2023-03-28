@@ -4,7 +4,7 @@ use super::DependencyGraph;
 use super::dependency_graph::NodeData;
 use super::dependency_graph::EdgeData;
 use crate::metadb::*;
-use crate::metadb::ckan::*;
+use crate::metadb::package::*;
 
 pub struct ResolverBuilder<'db> {
 	dep_graph: Option<DependencyGraph>,

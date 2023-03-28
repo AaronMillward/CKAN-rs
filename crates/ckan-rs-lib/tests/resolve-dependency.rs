@@ -1,16 +1,16 @@
 #[test]
 fn resolve_dependency() {
 	use ckan_rs::relationship_resolver::*;
-	use ckan_rs::metadb::ckan::*;
+	use ckan_rs::metadb::package::*;
 	
-	let options = ckan_rs::CkanRsOptions::default();
+	let config = ckan_rs::CkanRsConfig::default();
 
 	let db = {
-		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&options) {
+		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&config) {
 			db
 		} else {
 			let db = ckan_rs::metadb::generate_latest().expect("failed to generate metadb.");
-			db.save_to_disk(&options).expect("failed to save metadb.");
+			db.save_to_disk(&config).expect("failed to save metadb.");
 			db
 		}
 	};
@@ -80,9 +80,6 @@ fn resolve_dependency() {
 				for fail in fails {
 					eprintln!("Package `{}` failed with {:?}", fail.0, fail.1)
 				}
-				eprintln!("-- BEGIN FAILED GRAPH DUMP --");
-				dbg!(resolver.get_graph()); 
-				eprintln!("-- END FAILED GRAPH DUMP --");
 				panic!("resolver failed"); 
 			},
 		}

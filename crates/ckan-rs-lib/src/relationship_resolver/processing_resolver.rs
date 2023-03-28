@@ -318,15 +318,6 @@ impl<'db> ResolverProcessor<'db> {
 		self.decisions.insert(identifier.to_owned());
 	}
 
-	/// Get the dependency graph regardless of state.
-	/// 
-	/// This is mainly for debugging purposes, it is not recommended to analyse this graph to complete the resolve.
-	/// Especially as the layout of this graph could change in the future.
-	pub fn get_graph(&self) -> &DependencyGraph {
-		/* XXX: If callers are using this function to complete resolves we should consider this a fault of the resolver for not providing the required functionality */
-		&self.dep_graph
-	}
-
 	/// Finalize to get data about the completed resolve.
 	/// 
 	/// `Err` if the resolve is not complete.

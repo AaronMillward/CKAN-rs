@@ -11,24 +11,24 @@ pub enum DownloadError {
 crate::error_wrapper!(DownloadError, DownloadError::Reqwest, reqwest::Error);
 crate::error_wrapper!(DownloadError, DownloadError::IO     , std::io::Error);
 
-pub fn get_package_download_path(options: &crate::CkanRsOptions, id: &crate::metadb::ckan::PackageIdentifier) -> std::path::PathBuf {
-	options.download_dir().join(id.identifier.clone() + &id.version.to_string() + ".zip")
+pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metadb::package::PackageIdentifier) -> std::path::PathBuf {
+	config.download_dir().join(id.identifier.clone() + &id.version.to_string() + ".zip")
 }
 
 /// Downloads multiple package's contents.
 /// 
 /// # Arguments
-/// - `options` - Required for getting download paths.
+/// - `config` - Required for getting download paths.
 /// - `client` - Client to download package contents with.
 /// - `packages` - List of packages to download.
 /// - `force` - Overwrite existing downloads.
-pub async fn download_packages_content<'info>(options: &crate::CkanRsOptions, client: &reqwest::Client, packages: &[&'info crate::metadb::Package], force: bool) -> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
+pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, client: &reqwest::Client, packages: &[&'info crate::metadb::Package], force: bool) -> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
 	let mut results = Vec::<(&crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>::new();
 	
 	for package in packages {
 		/* TODO: unwraps */
 
-		let download_path = get_package_download_path(options, &package.identifier);
+		let download_path = get_package_download_path(config, &package.identifier);
 		if download_path.exists() && !force {
 			log::debug!("Package contents already downloaded, skipping.");
 			results.push((package, Ok(download_path)));

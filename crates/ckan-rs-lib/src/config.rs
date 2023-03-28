@@ -1,10 +1,10 @@
-pub struct CkanRsOptions {
+pub struct CkanRsConfig {
 	download_dir: std::path::PathBuf,
 	data_dir: std::path::PathBuf,
 	https_only: bool,
 }
 
-impl Default for CkanRsOptions {
+impl Default for CkanRsConfig {
 	fn default() -> Self {
 		Self {
 			download_dir: {
@@ -42,7 +42,7 @@ impl Default for CkanRsOptions {
 	}
 }
 
-impl CkanRsOptions {
+impl CkanRsConfig {
 	pub fn download_dir(&self) -> &std::path::PathBuf {
 		&self.download_dir
 	}

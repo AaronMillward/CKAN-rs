@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::metadb::ckan;
+use crate::metadb::package;
 
 pub mod filetracker;
 
@@ -13,8 +13,8 @@ pub enum GameInstanceError {
 #[derive(Debug)]
 pub struct GameInstance {
 	path: std::path::PathBuf,
-	pub compatible_ksp_versions: Vec<ckan::KspVersion>,
-	enabled_packages: HashSet<ckan::PackageIdentifier>,
+	pub compatible_ksp_versions: Vec<package::KspVersion>,
+	enabled_packages: HashSet<package::PackageIdentifier>,
 	pub tracked: filetracker::TrackedFiles,
 	pub deployment_dir: std::path::PathBuf,
 }
@@ -37,7 +37,7 @@ impl GameInstance {
 		
 		Ok(GameInstance {
 			path: game_root_directory.to_path_buf(),
-			compatible_ksp_versions: vec![ckan::KspVersion::try_from("1.12.3").unwrap()],
+			compatible_ksp_versions: vec![package::KspVersion::try_from("1.12.3").unwrap()],
 			tracked: Default::default(),
 			enabled_packages: Default::default(),
 			deployment_dir
@@ -46,18 +46,18 @@ impl GameInstance {
 
 	/* Package Management */
 
-	pub fn get_enabled_packages(&self) -> &HashSet<ckan::PackageIdentifier> {
+	pub fn get_enabled_packages(&self) -> &HashSet<package::PackageIdentifier> {
 		&self.enabled_packages
 	}
 
 	/// Enables a given package so that it is deployed the next time [`crate::installer::deployment::redeploy_packages`] is called.
-	pub fn enable_package(&mut self, package: impl AsRef<ckan::PackageIdentifier>) {
+	pub fn enable_package(&mut self, package: impl AsRef<package::PackageIdentifier>) {
 		log::trace!("Enabling package {} on instance at {}", package.as_ref(), self.game_dir().display());
 		self.enabled_packages.insert(package.as_ref().clone());
 	}
 
 	/// Disables a given package so that it is not deployed the next time [`crate::installer::deployment::redeploy_packages`] is called.
-	pub fn disable_package(&mut self, package: impl AsRef<ckan::PackageIdentifier>) {
+	pub fn disable_package(&mut self, package: impl AsRef<package::PackageIdentifier>) {
 		log::trace!("Disabling package {} on instance at {}", package.as_ref(), self.game_dir().display());
 		self.enabled_packages.remove(package.as_ref());
 	}

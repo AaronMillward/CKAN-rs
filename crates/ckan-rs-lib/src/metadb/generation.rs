@@ -1,12 +1,12 @@
 use super::*;
-use ckan::*;
+use package::*;
 use crate::Error::Parse;
 
 /// Gets the lastest MetaDB .tar.gz archive as bytes
 fn get_latest_archive() -> crate::Result<Vec<u8>> {
 	let mut v = Vec::<u8>::new();
 	/* TODO: Async */
-	/* TODO: Latest archive URL not hardcoded instead in options */
+	/* TODO: Latest archive URL not hardcoded instead in CkanRsConfig */
 	log::trace!("Downloading latest MetaDB.");
 	reqwest::blocking::get("https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz")?.read_to_end(&mut v)?;
 	Ok(v)

@@ -11,70 +11,72 @@ use std::path::PathBuf;
 use std::path::Path;
 
 use crate::Package;
-use crate::metadb::ckan::InstallDirective;
-use crate::metadb::ckan::PackageIdentifier;
-use crate::metadb::ckan::SourceDirective;
-use crate::metadb::ckan::OptionalDirective;
+use crate::metadb::package::InstallDirective;
+use crate::metadb::package::PackageIdentifier;
+use crate::metadb::package::SourceDirective;
+use crate::metadb::package::OptionalDirective;
 
-/// Cleans the instance of deployed files then link all required package files.
-/// 
-/// # Arguments
-/// - `db` - The package database to reference for packages.
-/// - `instance` - The instance to redeploy packages on.
-pub async fn redeploy_packages(db: crate::MetaDB, instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
-	log::trace!("Redeploying packages for instance at {}", instance.game_dir().display());
-	clean_deployment(instance).await?;
-
-	let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
+impl crate::game_instance::GameInstance {
+	/// Cleans the instance of deployed files then link all required package files.
+	/// 
+	/// # Arguments
+	/// - `db` - The package database to reference for packages.
+	/// - `instance` - The instance to redeploy packages on.
+	pub async fn redeploy_packages(&mut self, db: crate::MetaDB) -> Result<(), DeploymentError> {
+		log::trace!("Redeploying packages for instance at {}", self.game_dir().display());
+		self.clean_deployment().await?;
 	
-	for package in instance.get_enabled_packages() {
-		log::trace!("Deploying package {}", package);
-		let package = db.get_from_unique_id(package).expect("package no longer exists in metadb.");
-		let path = instance.get_package_deployment_path(package);
-		let path = path.exists().then_some(path).ok_or(DeploymentError::MissingContent)?;
-
-		let mut package_files = Vec::<String>::new();
-
-		let install_instructions = get_install_instructions(package, path).unwrap();
+		let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
+		
+		for package in self.get_enabled_packages() {
+			log::trace!("Deploying package {}", package);
+			let package = db.get_from_unique_id(package).expect("package no longer exists in metadb.");
+			let path = self.get_package_deployment_path(package);
+			let path = path.exists().then_some(path).ok_or(DeploymentError::MissingContent)?;
 	
-		for (source, destination) in install_instructions {
-			/* TODO: Install Methods */
-			let final_destination = instance.game_dir().join(&destination);
-			std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
-			std::fs::hard_link(&source, &final_destination).map_err(DeploymentError::HardLink).expect("hardlink failed.");
-			package_files.push(destination.to_string_lossy().to_string());
+			let mut package_files = Vec::<String>::new();
+	
+			let install_instructions = get_install_instructions(package, path).unwrap();
+		
+			for (source, destination) in install_instructions {
+				/* TODO: Install Methods */
+				let final_destination = self.game_dir().join(&destination);
+				std::fs::create_dir_all(&final_destination.with_file_name("")).map_err(DeploymentError::CreateDirectory)?;
+				std::fs::hard_link(&source, &final_destination).map_err(DeploymentError::HardLink).expect("hardlink failed.");
+				package_files.push(destination.to_string_lossy().to_string());
+			}
+	
+			tracked_files.push((&package.identifier, package_files));
 		}
-
-		tracked_files.push((&package.identifier, package_files));
-	}
-
-	for (package, files) in tracked_files {
-		for f in files {
-			instance.tracked.add_file(package, f);
+	
+		for (package, files) in tracked_files {
+			for f in files {
+				self.tracked.add_file(package, f);
+			}
 		}
+	
+		Ok(())
 	}
-
-	Ok(())
-}
-
-/// Cleans the given instance of all package files.
-/// # Arguments
-/// - `instance` - The instance to clean.
-/// # Errors
-/// Potential IO Errors when removing files.
-pub async fn clean_deployment(instance: &mut crate::game_instance::GameInstance) -> Result<(), DeploymentError> {
-	log::trace!("Clearing deployed packages from instance at {}", instance.game_dir().display());
-	for f in instance.tracked.get_all_files() {
-		let path = instance.game_dir().join(f);
-		if path.exists() {
-			std::fs::remove_file(path).map_err(DeploymentError::RemoveFailed)?;
-			/* TODO: Clean empty directories */
+	
+	/// Cleans the given instance of all package files.
+	/// # Arguments
+	/// - `instance` - The instance to clean.
+	/// # Errors
+	/// Potential IO Errors when removing files.
+	pub async fn clean_deployment(&mut self) -> Result<(), DeploymentError> {
+		log::trace!("Clearing deployed packages from instance at {}", self.game_dir().display());
+		for f in self.tracked.get_all_files() {
+			let path = self.game_dir().join(f);
+			if path.exists() {
+				std::fs::remove_file(path).map_err(DeploymentError::RemoveFailed)?;
+				/* TODO: Clean empty directories */
+			}
 		}
+	
+		self.tracked.clear();
+	
+		Ok(())
 	}
-
-	instance.tracked.clear();
-
-	Ok(())
 }
 
 /// Deciphers the install directives into a simpler (`source`, `destination`) tuple.

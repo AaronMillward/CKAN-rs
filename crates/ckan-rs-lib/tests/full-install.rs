@@ -1,20 +1,19 @@
-use ckan_rs::game_instance::GameInstance;
-
 #[tokio::test]
 async fn full_install() {
+	use ckan_rs::game_instance::GameInstance;
 	use ckan_rs::relationship_resolver::*;
-	use ckan_rs::metadb::ckan::*;
+	use ckan_rs::metadb::package::*;
 
 	env_logger::builder().is_test(true).try_init().expect("failed to create logger.");
 
-	let options = ckan_rs::CkanRsOptions::default();
+	let config = ckan_rs::CkanRsConfig::default();
 	
 	let db = {
-		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&options) {
+		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&config) {
 			db
 		} else {
 			let db = tokio::task::spawn_blocking(ckan_rs::metadb::generate_latest).await.expect("failed to join task.").expect("failed to generate metadb.");
-			db.save_to_disk(&options).expect("failed to save metadb.");
+			db.save_to_disk(&config).expect("failed to save metadb.");
 			db
 		}
 	};
@@ -67,7 +66,7 @@ async fn full_install() {
 	instance.compatible_ksp_versions = compatible_ksp_versions;
 
 	let client = reqwest::Client::builder()
-		.https_only(options.https_only())
+		.https_only(config.https_only())
 		.build()
 		.unwrap();
 
@@ -76,16 +75,16 @@ async fn full_install() {
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installer::download::download_packages_content(&options, &client, packages.as_slice(), false).await;
+		let download_results = ckan_rs::installation::download::download_packages_content(&config, &client, packages.as_slice(), false).await;
 		for result in download_results {
 			if result.1.is_err() { panic!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}
 	}
 
 	for package in packages {
-		ckan_rs::installer::content::extract_content_to_deployment(&options, &instance, package).unwrap();
+		ckan_rs::installation::content::extract_content_to_deployment(&config, &instance, package).unwrap();
 		instance.enable_package(package);
 	}
 
-	ckan_rs::installer::deployment::redeploy_packages(db, &mut instance).await.expect("deployment failed");
+	instance.redeploy_packages(db).await.expect("deployment failed");
 }

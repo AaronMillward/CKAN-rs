@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use super::ckan::*;
+use super::package::*;
 
 pub struct KspVersionMatches<'a, I>
 where
-	I: Iterator<Item = &'a super::ckan::Package>,
+	I: Iterator<Item = &'a super::package::Package>,
 {
 	match_versions: Vec<KspVersion>,
 	underlying: I,
@@ -12,7 +12,7 @@ where
 
 impl<'a, I> Iterator for KspVersionMatches<'a, I>
 where
-	I: Iterator<Item = &'a super::ckan::Package>,
+	I: Iterator<Item = &'a super::package::Package>,
 {
 	type Item = I::Item;
 
@@ -54,7 +54,7 @@ impl<'a, I: Iterator<Item = &'a Package>> KspVersionMatchesExt<'a> for I {}
 
 pub struct ModVersionMatches<'a, I>
 where
-	I: Iterator<Item = &'a super::ckan::Package>,
+	I: Iterator<Item = &'a super::package::Package>,
 {
 	bounds: PackageVersionBounds,
 	underlying: I,
@@ -62,7 +62,7 @@ where
 
 impl<'a, I> Iterator for ModVersionMatches<'a, I>
 where
-	I: Iterator<Item = &'a super::ckan::Package>,
+	I: Iterator<Item = &'a super::package::Package>,
 {
 	type Item = I::Item;
 
@@ -94,7 +94,7 @@ impl<'a, I: Iterator<Item = &'a Package>> ModVersionMatchesExt<'a> for I {}
 
 pub struct DescriptorMatches<'a, I>
 where
-	I: Iterator<Item = &'a super::ckan::Package>,
+	I: Iterator<Item = &'a super::package::Package>,
 {
 	descriptor: PackageDescriptor,
 	underlying: I,
@@ -102,7 +102,7 @@ where
 
 impl<'a, I> Iterator for DescriptorMatches<'a, I>
 where
-	I: Iterator<Item = &'a super::ckan::Package>,
+	I: Iterator<Item = &'a super::package::Package>,
 {
 	type Item = I::Item;
 

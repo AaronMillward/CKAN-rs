@@ -8,7 +8,7 @@ pub enum Error {
 	Parse(String),
 	Validation(String),
 	InvalidSelection,
-	Download(crate::installer::download::DownloadError),
+	Download(crate::installation::download::DownloadError),
 }
 
 impl std::fmt::Display for Error {
@@ -29,4 +29,4 @@ macro_rules! error_wrapper(
 error_wrapper!(Error, Error::Reqwest  , reqwest::Error);
 error_wrapper!(Error, Error::IO       , std::io::Error);
 error_wrapper!(Error, Error::SerdeJSON, serde_json::Error);
-error_wrapper!(Error, Error::Download, crate::installer::download::DownloadError);
+error_wrapper!(Error, Error::Download, crate::installation::download::DownloadError);
