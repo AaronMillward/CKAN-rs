@@ -1,3 +1,6 @@
+use std::io::{Read, Write};
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CkanRsConfig {
 	download_dir: std::path::PathBuf,
 	data_dir: std::path::PathBuf,
@@ -75,4 +78,56 @@ impl CkanRsConfig {
 	pub fn set_https_only(&mut self, https_only: bool) {
 		self.https_only = https_only;
 	}
+
+	/// Loads the config file from a file.
+	/// 
+	/// # Platform Specific
+	/// On Windows this file is located at `%appdata%/CKAN-rs/config.json`
+	/// 
+	/// On other platforms it is located at `$XDG_CONFIG_HOME/CKAN-rs/config.json`
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when opening or reading from the file.
+	/// - [`crate::error::Error::SerdeJSON`] when deserializing the file.
+	pub fn load_from_disk() -> crate::Result<Self> {
+		let path = get_config_path();
+
+		let mut file = std::fs::File::open(path)?;
+		let mut s: String = Default::default();
+		file.read_to_string(&mut s)?;
+		Ok(serde_json::from_str(&s)?)
+	}
+
+	/// Saves the config to a JSON file.
+	/// 
+	/// # Platform Specific
+	/// On Windows this file is located at `%appdata%/CKAN-rs/config.json`
+	/// 
+	/// On other platforms it is located at `$XDG_CONFIG_HOME/CKAN-rs/config.json`
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when opening the file, writing to it or creating it's parent directories.
+	/// - [`crate::error::Error::SerdeJSON`] when serializing the file.
+	pub fn save_to_disk(&self) -> crate::Result<()> {
+		let path = get_config_path();
+		std::fs::create_dir_all(path.with_file_name(""))?;
+		let json = serde_json::to_string_pretty(self)?;
+		let mut file = std::fs::File::create(path)?;
+		file.write_all(json.as_bytes())?;
+		Ok(())
+	}
+}
+
+fn get_config_path() -> std::path::PathBuf {
+	#[cfg(target_os = "windows")]
+	let path = std::path::PathBuf::from(std::env::var("APPDATA").expect("APPDATA misssing."));
+
+	#[cfg(not(target_os = "windows"))]
+	let path = if let Ok(e) = std::env::var("XDG_CONFIG_HOME") {
+		std::path::PathBuf::from(e) 
+	} else {
+		std::path::PathBuf::from(std::env::var("HOME").expect("HOME environment variable not set.")).join(".config")
+	};
+
+	path.join("CKAN-rs").join("config.json")
 }

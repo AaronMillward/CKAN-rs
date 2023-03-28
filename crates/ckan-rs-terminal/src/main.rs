@@ -52,4 +52,19 @@ fn main() {
 	let install = parsed_options.opt_strs("s");
 	let remove = parsed_options.opt_strs("r");
 
+	let config = match ckan_rs::CkanRsConfig::load_from_disk() {
+		Ok(c) => c,
+		Err(e) => match e {
+			ckan_rs::Error::IO(e) => {
+				log::warn!("File error attempting to load config from disk. {}", e);
+				ckan_rs::CkanRsConfig::default()
+			},
+			ckan_rs::Error::SerdeJSON(e) => {
+				log::warn!("JSON error attempting to load config from disk. {}", e);
+				ckan_rs::CkanRsConfig::default()
+			},
+			_ => unimplemented!("unexpected error type when loading config from disk.")
+		},
+	};
+
 }
