@@ -14,7 +14,7 @@ pub use iterator::DescriptorMatchesExt;
 pub use iterator::GetProvidersExt;
 pub use iterator::ModVersionMatchesExt;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::io::{Read, Write};
 use serde::{Serialize, Deserialize};
 
@@ -22,6 +22,8 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MetaDB {
 	packages: HashSet<package::Package>,
+	/* TODO: Store builds field seperately so we don't have to load the whole DB to get game versions. */
+	builds: HashMap<i32, String>,
 }
 
 impl MetaDB {
@@ -42,6 +44,15 @@ impl MetaDB {
 		self.get_from_unique_id(unique)
 	}
 
+	pub fn get_game_builds(&self) -> &HashMap<i32, String> {
+		&self.builds
+	}
+
+	/// Loads the MetaDB.
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when opening or reading from the file.
+	/// - [`crate::error::Error::Parse`] when deserializing the file.
 	pub fn load_from_disk(config: &crate::CkanRsConfig) -> crate::Result<MetaDB> {
 		let path = config.data_dir().join("metadb.bin");
 		let mut f = std::fs::File::open(path)?;
@@ -50,6 +61,11 @@ impl MetaDB {
 		bincode::deserialize::<MetaDB>(&v).map_err(|_| crate::error::Error::Parse("Deserialize failed".to_string()))
 	}
 
+	/// Saves the MetaDB.
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when creating or writing to the file.
+	/// - [`crate::error::Error::Parse`] when serializing the file.
 	pub fn save_to_disk(&self, config: &crate::CkanRsConfig) -> crate::Result<()> {
 		let path = config.data_dir().join("metadb.bin");
 		let data = bincode::serialize(self).map_err(|_| crate::error::Error::Parse("Serialize failed".to_string()))?;

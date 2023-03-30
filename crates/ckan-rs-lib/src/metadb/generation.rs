@@ -36,58 +36,63 @@ impl MetaDB {
 		log::trace!("Generating MetaDB from given archive.");
 		/* TODO: Determine if this is IO or CPU bound causing it to take 15 sec to generate. */
 
-		Ok(Self {
-			packages: {
-				let mut v = HashSet::<Package>::new();
+		let mut packages = HashSet::<Package>::new();
+		let mut builds = HashMap::<i32, String>::new();
 
-				let compiled_schema = do_validation.then(||
-					jsonschema::JSONSchema::compile(
-						&serde_json::from_str(
-							include_str!("CKAN-json.schema")
-						).expect("schema should be valid json.")
-					).expect("schema should compile.")
-				);
+		let compiled_schema = do_validation.then(||
+			jsonschema::JSONSchema::compile(
+				&serde_json::from_str(
+					include_str!("CKAN-json.schema")
+				).expect("schema should be valid json.")
+			).expect("schema should compile.")
+		);
 
-				for (i, entry) in archive.entries()?.enumerate() {
-					let mut entry = entry.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
+		for (i, entry) in archive.entries()?.enumerate() {
+			let mut entry = entry.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
 
-					if entry.size() == 0 {
-						continue;
-					}
-
-					let json = {
-						let mut buffer = Vec::<u8>::new();
-						entry.read_to_end(&mut buffer)?;
-						match serde_json::from_slice::<serde_json::Value>(&buffer) {
-							Ok(v) => v,
-							Err(e) => {
-								log::warn!("Couldn't process entry {} in metadb archive, failed to deserialize as JSON: {}", i, e);
-								continue;
-							},
-						}
-					};
-					
-					if let Some(schema) = &compiled_schema {
-						if !schema.is_valid(&json) {
-							log::warn!("Couldn't process entry {} in metadb, it does not match the schema", i);
-							continue;
-						}
-					}
-
-					{
-						let ckan : Package = match Package::read_from_json(json) {
-							Ok(v) => v,
-							Err(e) => {
-								log::warn!("Couldn't process entry {} in metadb, failed to create package from JSON: {}", i, e);
-								continue;
-							},
-						};
-						v.insert(ckan);
-					}
-				}
-				v
+			if entry.path()?.to_string_lossy() == "builds.json" {
+				let mut buffer = Vec::<u8>::new();
+				entry.read_to_end(&mut buffer)?;
+				builds = serde_json::from_str(&String::from_utf8(buffer).expect("builds.json is non-unicode."))?;
 			}
-		})
+
+			if entry.size() == 0 {
+				log::warn!("zero sized entry, {} in metadb archive", i);
+				continue;
+			}
+
+			let json = {
+				let mut buffer = Vec::<u8>::new();
+				entry.read_to_end(&mut buffer)?;
+				match serde_json::from_slice::<serde_json::Value>(&buffer) {
+					Ok(v) => v,
+					Err(e) => {
+						log::warn!("Couldn't process entry {} in metadb archive, failed to deserialize as JSON: {}", i, e);
+						continue;
+					},
+				}
+			};
+			
+			if let Some(schema) = &compiled_schema {
+				if !schema.is_valid(&json) {
+					log::warn!("Couldn't process entry {} in metadb, it does not match the schema", i);
+					continue;
+				}
+			}
+
+			{
+				let ckan : Package = match Package::read_from_json(json) {
+					Ok(v) => v,
+					Err(e) => {
+						log::warn!("Couldn't process entry {} in metadb, failed to create package from JSON: {}", i, e);
+						continue;
+					},
+				};
+				packages.insert(ckan);
+			}
+		}
+
+		Ok(Self { packages, builds })
 	}
 }
 
