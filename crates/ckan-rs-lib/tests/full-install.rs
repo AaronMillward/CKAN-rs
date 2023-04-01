@@ -12,7 +12,7 @@ async fn full_install() {
 		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&config) {
 			db
 		} else {
-			let db = tokio::task::spawn_blocking(ckan_rs::metadb::generate_latest).await.expect("failed to join task.").expect("failed to generate metadb.");
+			let db = ckan_rs::metadb::generate_latest().await.expect("failed to generate metadb.");
 			db.save_to_disk(&config).expect("failed to save metadb.");
 			db
 		}
@@ -60,10 +60,10 @@ async fn full_install() {
 
 	let mut instance = {
 		let instance_path = ckan_rs_test_utils::create_fake_game_instance().expect("failed to create test game instance.");
-		GameInstance::new(&instance_path, instance_path.parent().unwrap().join("deployment")).unwrap()
+		GameInstance::new(&config, db.get_game_builds(), "test".into(), &instance_path, instance_path.parent().unwrap().join("deployment")).unwrap()
 	};
 	
-	instance.compatible_ksp_versions = compatible_ksp_versions;
+	instance.set_compatible_ksp_versions(compatible_ksp_versions);
 
 	let client = reqwest::Client::builder()
 		.https_only(config.https_only())
@@ -86,5 +86,5 @@ async fn full_install() {
 		instance.enable_package(package);
 	}
 
-	instance.redeploy_packages(db).await.expect("deployment failed");
+	instance.redeploy_packages(&db).await.expect("deployment failed");
 }

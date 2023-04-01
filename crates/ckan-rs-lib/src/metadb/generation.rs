@@ -110,9 +110,9 @@ mod tests {
 		).expect("schema isn't invalid");
 	}
 
-	#[test]
-	fn get_lastest_db_archive() {
-		let a = get_latest_archive().expect("failed to download archive.");
+	#[tokio::test]
+	async fn get_lastest_db_archive() {
+		let a = get_latest_archive().await.expect("failed to download archive.");
 		if a.is_empty() {
 			panic!("data is empty.")
 		}

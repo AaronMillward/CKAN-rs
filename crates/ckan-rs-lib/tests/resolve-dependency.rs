@@ -1,5 +1,5 @@
-#[test]
-fn resolve_dependency() {
+#[tokio::test]
+async fn resolve_dependency() {
 	use ckan_rs::relationship_resolver::*;
 	use ckan_rs::metadb::package::*;
 	
@@ -9,7 +9,7 @@ fn resolve_dependency() {
 		if let Ok(db) = ckan_rs::MetaDB::load_from_disk(&config) {
 			db
 		} else {
-			let db = ckan_rs::metadb::generate_latest().expect("failed to generate metadb.");
+			let db = ckan_rs::metadb::generate_latest().await.expect("failed to generate metadb.");
 			db.save_to_disk(&config).expect("failed to save metadb.");
 			db
 		}
@@ -84,5 +84,4 @@ fn resolve_dependency() {
 			},
 		}
 	}
-
 }
