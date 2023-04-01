@@ -32,31 +32,56 @@ async fn main() {
 		ckan_rs::CkanRsConfig::default()
 	});
 
+	async fn genreate_and_save_new_metadb(config: &ckan_rs::CkanRsConfig) -> Result<ckan_rs::MetaDB, ()> {
+		match ckan_rs::metadb::generate_latest().await {
+			Ok(db) => {
+				match db.save_to_disk(config) {
+					Ok(_) => {},
+					Err(e) => {
+						log::error!("Failed to save MetaDB after failed load: {}", e);
+						return Err(());
+					},
+				}
+				Ok(db)
+			},
+			Err(e) => {
+				log::error!("Failed to generate MetaDB after failed load: {}", e);
+				Err(())
+			},
+		}
+	}
+
 	let db = match ckan_rs::MetaDB::load_from_disk(&config) {
 		Ok(db) => db,
 		Err(e) => {
 			match e {
 				ckan_rs::Error::IO(e) => {
-					log::error!("Failed to open MetaDB due to IO error: {}", &e);
-					return;
+					match e.kind() {
+						std::io::ErrorKind::NotFound => {
+							let res = genreate_and_save_new_metadb(&config).await;
+							match res {
+								Ok(db) => db, 
+								Err(_) => {
+									log::error!("Failed to generate metadb");
+									return
+								}
+							}
+						}
+						_ => {
+							log::error!("Failed to open MetaDB due to IO error: {}", e);
+							return;
+						}
+					}
 				},
 				ckan_rs::Error::Parse(_) => {
 					log::warn!("Failed to open MetaDB due to parsing error, DB format likely changed. regenerating...");
-					match ckan_rs::metadb::generate_latest().await {
-						Ok(db) => {
-							match db.save_to_disk(&config) {
-								Ok(_) => {},
-								Err(e) => {
-									log::error!("Failed to save MetaDB after failed load: {}", e);
-									return;
-								},
-							}
-							db
-						},
-						Err(e) => {
-							log::error!("Failed to generate MetaDB after failed load: {}", e);
+					let res = genreate_and_save_new_metadb(&config).await;
+					match res {
+						Ok(db) => db, 
+						Err(_) => {
+							log::error!("Failed to generate metadb");
 							return
-						},
+						}
 					}
 				},
 				_ => unimplemented!("unexpected error type."),

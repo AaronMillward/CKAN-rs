@@ -47,10 +47,12 @@ impl MetaDB {
 		for (i, entry) in archive.entries()?.enumerate() {
 			let mut entry = entry.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
 
-			if entry.path()?.to_string_lossy() == "builds.json" {
+			if entry.path()?.to_string_lossy() == "CKAN-meta-master/builds.json" {
+				log::trace!("Processing builds.json");
 				let mut buffer = Vec::<u8>::new();
 				entry.read_to_end(&mut buffer)?;
-				builds = serde_json::from_str(&String::from_utf8(buffer).expect("builds.json is non-unicode."))?;
+				let json: serde_json::Value = serde_json::from_str(&String::from_utf8(buffer).expect("builds.json is non-unicode."))?;
+				builds = serde_json::from_value(json.as_object().unwrap().get("builds").unwrap().clone())?;
 			}
 
 			if entry.size() == 0 {
@@ -88,6 +90,8 @@ impl MetaDB {
 				packages.insert(ckan);
 			}
 		}
+
+		assert!(!builds.is_empty(), "builds.json was not processed.");
 
 		Ok(Self { packages, builds })
 	}
