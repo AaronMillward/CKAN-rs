@@ -224,6 +224,8 @@ dependencies = [
  "env_logger",
  "getopts",
  "log",
+ "reqwest",
+ "tokio",
 ]
 
 [[package]]

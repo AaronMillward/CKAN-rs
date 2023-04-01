@@ -2,7 +2,9 @@
 
 use std::collections::HashMap;
 
-#[derive(Debug, Default)]
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TrackedFiles {
 	/* TODO: In the future we could use a tuple in this Vec instead to store additional data such as method or reason. */
 	files: HashMap<crate::metadb::package::PackageIdentifier, Vec<String>>

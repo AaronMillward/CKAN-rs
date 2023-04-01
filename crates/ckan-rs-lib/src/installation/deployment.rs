@@ -22,7 +22,7 @@ impl crate::game_instance::GameInstance {
 	/// # Arguments
 	/// - `db` - The package database to reference for packages.
 	/// - `instance` - The instance to redeploy packages on.
-	pub async fn redeploy_packages(&mut self, db: crate::MetaDB) -> Result<(), DeploymentError> {
+	pub async fn redeploy_packages(&mut self, db: &crate::MetaDB) -> Result<(), DeploymentError> {
 		log::trace!("Redeploying packages for instance at {}", self.game_dir().display());
 		self.clean_deployment().await?;
 	

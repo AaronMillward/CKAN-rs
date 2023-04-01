@@ -8,3 +8,5 @@ ckan-rs = { path = "../ckan-rs-lib" }
 getopts = "0.2.21"
 log = "0.4.17"
 env_logger = "0.10.0"
+reqwest = "0.11"
+tokio = { version = "1.21.2", features = ["full"] }

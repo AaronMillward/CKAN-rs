@@ -3,19 +3,16 @@ use package::*;
 use crate::Error::Parse;
 
 /// Gets the lastest MetaDB .tar.gz archive as bytes
-fn get_latest_archive() -> crate::Result<Vec<u8>> {
-	let mut v = Vec::<u8>::new();
-	/* TODO: Async */
+async fn get_latest_archive() -> crate::Result<Vec<u8>> {
 	/* TODO: Latest archive URL not hardcoded instead in CkanRsConfig */
 	log::trace!("Downloading latest MetaDB.");
-	reqwest::blocking::get("https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz")?.read_to_end(&mut v)?;
-	Ok(v)
+	Ok(reqwest::get("https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz").await?.bytes().await.map(|v| v.to_vec())?)
 }
 
 /// Download and then generate the latest MetaDB.
-pub fn generate_latest() -> crate::Result<MetaDB> {
+pub async fn generate_latest() -> crate::Result<MetaDB> {
 	log::trace!("Generating latest MetaDB.");
-	let archive_data = get_latest_archive()?;
+	let archive_data = get_latest_archive().await?;
 	let mut gz = flate2::bufread::GzDecoder::new(archive_data.as_slice());
 	let mut v = Vec::<u8>::new();
 	gz.read_to_end(&mut v)?;

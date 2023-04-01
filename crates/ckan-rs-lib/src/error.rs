@@ -9,6 +9,7 @@ pub enum Error {
 	Validation(String),
 	InvalidSelection,
 	Download(crate::installation::download::DownloadError),
+	AlreadyExists,
 }
 
 impl std::fmt::Display for Error {

@@ -52,12 +52,12 @@ impl MetaDB {
 	/// 
 	/// # Errors
 	/// - [`crate::error::Error::IO`] when opening or reading from the file.
-	/// - [`crate::error::Error::Parse`] when deserializing the file.
+	/// - [`crate::error::Error::Parse`] when deserializing the file, this is likely due to the DB format changing and so needs regenerating.
 	pub fn load_from_disk(config: &crate::CkanRsConfig) -> crate::Result<MetaDB> {
 		let path = config.data_dir().join("metadb.bin");
 		let mut f = std::fs::File::open(path)?;
 		let mut v = Vec::<u8>::new();
-		f.read_to_end(&mut v).unwrap();
+		f.read_to_end(&mut v)?;
 		bincode::deserialize::<MetaDB>(&v).map_err(|_| crate::error::Error::Parse("Deserialize failed".to_string()))
 	}
 

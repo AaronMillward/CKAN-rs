@@ -24,6 +24,19 @@ pub enum DeterminePackageError {
 	VersionBoundsImcompatible,
 }
 
+impl std::fmt::Display for DeterminePackageError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			DeterminePackageError::IdentifierDoesNotExist => write!(f, "The package identifier does not exist in MetaDB."),
+			DeterminePackageError::NoCompatibleVersion => write!(f, "This package has no compatible version."),
+			DeterminePackageError::NoCompatibleGameVersion => write!(f, "This package is not compatible with the selected game version(s)."),
+			DeterminePackageError::VersionBoundsImcompatible => write!(f, "The package has no version supporting all requirements."),
+		}
+	}
+}
+
+impl std::error::Error for DeterminePackageError {}
+
 pub enum ResolverStatus {
 	/// The resolve has been succsessful, all packages are valid and compatible with each other.
 	Complete,

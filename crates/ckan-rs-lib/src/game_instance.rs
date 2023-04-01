@@ -1,12 +1,13 @@
-use std::{collections::HashSet, io::Read};
+use std::{collections::HashSet, io::{Read, Write}, path::Path};
 
 use crate::metadb::package;
 
 pub mod filetracker;
 
 /// A single install (instance) of a game.
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct GameInstance {
+	name: String,
 	path: std::path::PathBuf,
 	compatible_ksp_versions: Vec<package::KspVersion>,
 	enabled_packages: HashSet<package::PackageIdentifier>,
@@ -20,7 +21,25 @@ impl GameInstance {
 	/// # Errors
 	/// - [`crate::error::Error::IO`] when the directory is invalid.
 	/// - [`crate::error::Error::Parse`] when extracting the build id from `buildID.txt`.
-	pub fn new(builds: &std::collections::HashMap<i32, String>, game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> crate::Result<GameInstance>{
+	pub fn new(config: &crate::CkanRsConfig, builds: &std::collections::HashMap<i32, String>, name: String, game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> crate::Result<GameInstance>{
+		let instances_dir = config.data_dir().join("instances");
+		if !instances_dir.exists() {
+			std::fs::create_dir_all(&instances_dir)?;
+		}
+
+		log::debug!("Checking for existing instances in {}", instances_dir.display());
+
+		for instance_path in instances_dir.read_dir()?.map(|r| r.map(|r| r.path())) {
+			let instance = GameInstance::load_by_file(instance_path?)?;
+			let instance_name_taken = instance.name == name;
+			let game_root_in_use = instance.game_dir() == game_root_directory.as_ref();
+			if instance_name_taken || game_root_in_use {
+				return Err(crate::Error::AlreadyExists)
+			}
+		}
+
+		log::debug!("Checking validity of game root {}", game_root_directory.as_ref().display());
+
 		let game_root_directory = game_root_directory.as_ref();
 		std::fs::metadata(game_root_directory)?; // Gives the user more info compared to using `game_root_directory.exists()`
 		
@@ -53,6 +72,7 @@ impl GameInstance {
 		log::info!("Created new game instance at path {}", game_root_directory.display());
 		
 		Ok(GameInstance {
+			name,
 			path: game_root_directory.to_path_buf(),
 			compatible_ksp_versions,
 			tracked: Default::default(),
@@ -98,7 +118,41 @@ impl GameInstance {
 		self.enabled_packages.clear();
 	}
 
-	/* TODO: Serialization */
-}
+	/* Serialization */
 
-/* TODO: Instance List */
+	/// Loads an instance with the given name.
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when opening or reading from the file.
+	/// - [`crate::error::Error::SerdeJSON`] when deserializing the file.
+	pub fn load_by_name(config: &crate::CkanRsConfig, name: impl AsRef<str>) -> crate::Result<Self> {
+		let path = config.data_dir().join("instances").join(format!("{}.json", name.as_ref()));
+		Self::load_by_file(path)
+	}
+
+	/// Loads an instance with from a file at a given path.
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when opening or reading from the file.
+	/// - [`crate::error::Error::SerdeJSON`] when deserializing the file.
+	fn load_by_file(path: impl AsRef<Path>) -> crate::Result<Self> {
+		let mut file = std::fs::File::open(path)?;
+		let mut s: String = Default::default();
+		file.read_to_string(&mut s)?;
+		Ok(serde_json::from_str(&s)?)
+	}
+
+	/// Saves the instance to a JSON file.
+	/// 
+	/// # Errors
+	/// - [`crate::error::Error::IO`] when opening the file, writing to it or creating it's parent directories.
+	/// - [`crate::error::Error::SerdeJSON`] when serializing the file.
+	pub fn save_to_disk(&self, config: &crate::CkanRsConfig) -> crate::Result<()> {
+		let path = config.data_dir().join("instances").join(format!("{}.json", self.name));
+		std::fs::create_dir_all(path.with_file_name(""))?;
+		let json = serde_json::to_string_pretty(self)?;
+		let mut file = std::fs::File::create(path)?;
+		file.write_all(json.as_bytes())?;
+		Ok(())
+	}
+}
