@@ -334,11 +334,11 @@ impl<'db> ResolverProcessor<'db> {
 	/// Finalize to get data about the completed resolve.
 	/// 
 	/// `Err` if the resolve is not complete.
-	pub fn finalize(self) -> Result<finalized_resolver::ResolverFinalized, Self> {
+	pub fn finalize(self) -> Result<finalized_resolver::ResolverFinalized, Box<Self>> {
 		if self.is_complete {
 			Ok(finalized_resolver::ResolverFinalized::new(self.dep_graph, self.compatible_candidates))
 		} else {
-			Err(self)
+			Err(Box::new(self))
 		}
 	}
 }
