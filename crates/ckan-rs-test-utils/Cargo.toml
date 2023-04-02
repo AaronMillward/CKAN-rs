@@ -8,3 +8,4 @@ ckan-rs = { path = "../ckan-rs-lib" }
 
 fs_extra = "1.3.0"
 tempfile = "3.4.0"
+thiserror = "1.0.40"

@@ -1,15 +1,17 @@
 //! Downloads a packages content.
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum DownloadError {
 	/// Given package cannot be downloaded as it has no download information.
+	#[error("given package does not have downloadable content.")]
 	PackageMissingDownloadFields,
-	Reqwest(reqwest::Error),
-	IO(std::io::Error),
+	#[error("reqwest error: {0}")]
+	Reqwest(#[from] reqwest::Error),
+	#[error("IO error: {0}")]
+	IO(#[from] std::io::Error),
 }
-
-crate::error_wrapper!(DownloadError, DownloadError::Reqwest, reqwest::Error);
-crate::error_wrapper!(DownloadError, DownloadError::IO     , std::io::Error);
 
 pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metadb::package::PackageIdentifier) -> std::path::PathBuf {
 	config.download_dir().join(id.identifier.clone() + &id.version.to_string() + ".zip")
@@ -22,15 +24,14 @@ pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metad
 /// - `client` - Client to download package contents with.
 /// - `packages` - List of packages to download.
 /// - `force` - Overwrite existing downloads.
-pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, client: &reqwest::Client, packages: &[&'info crate::metadb::Package], force: bool) -> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
+pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, client: &reqwest::Client, packages: &[&'info crate::metadb::Package], force: bool) 
+-> crate::Result<Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>> {
 	let mut results = Vec::<(&crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>::new();
 	
 	for package in packages {
-		/* TODO: unwraps */
-
 		let download_path = get_package_download_path(config, &package.identifier);
 		if download_path.exists() && !force {
-			log::debug!("Package contents already downloaded, skipping.");
+			log::info!("Package {} contents already downloaded, skipping.", &package.identifier);
 			results.push((package, Ok(download_path)));
 			continue;
 		}
@@ -42,27 +43,25 @@ pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, clie
 			continue;
 		};
 		
-		tokio::fs::create_dir_all(download_path.with_file_name("")).await.unwrap();
-		let mut download_file = tokio::fs::File::create(&download_path).await.unwrap();
+		tokio::fs::create_dir_all(download_path.with_file_name("")).await?;
+		let mut download_file = tokio::fs::File::create(&download_path).await?;
 	
 		log::info!("Downloading package {} from {}", package.identifier, url);
 		let content = client
 			.get(url)
 			.send()
-			.await.unwrap()
+			.await?
 			.bytes()
-			.await.unwrap()
+			.await?
 			.to_vec();
 	
 		log::info!("Writing package download to disk: {}", package.identifier);
-		tokio::io::copy(&mut content.as_slice(), &mut download_file).await.unwrap();
+		tokio::io::copy(&mut content.as_slice(), &mut download_file).await?;
 		
 		/* TODO: Check SHA sums */
 	
 		results.push((package, Ok(download_path)));
 	}
 
-	/* TODO: Save metadb with new download paths */
-
-	results
+	Ok(results)
 }

@@ -75,7 +75,7 @@ async fn full_install() {
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installation::download::download_packages_content(&config, &client, packages.as_slice(), false).await;
+		let download_results = ckan_rs::installation::download::download_packages_content(&config, &client, packages.as_slice(), false).await.unwrap();
 		for result in download_results {
 			if result.1.is_err() { panic!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}

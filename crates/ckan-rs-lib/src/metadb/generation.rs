@@ -51,8 +51,12 @@ impl MetaDB {
 				log::trace!("Processing builds.json");
 				let mut buffer = Vec::<u8>::new();
 				entry.read_to_end(&mut buffer)?;
-				let json: serde_json::Value = serde_json::from_str(&String::from_utf8(buffer).expect("builds.json is non-unicode."))?;
-				builds = serde_json::from_value(json.as_object().unwrap().get("builds").unwrap().clone())?;
+				let json: serde_json::Value = serde_json::from_str(&String::from_utf8(buffer).unwrap())?;
+				builds = serde_json::from_value(
+					json.as_object().expect("builds.json root should be an object.")
+					.get("builds").expect("builds.json root object should contain key \"builds\".")
+					.clone()
+				)?;
 			}
 
 			if entry.size() == 0 {

@@ -21,7 +21,7 @@ impl GameInstance {
 	/// # Errors
 	/// - [`crate::error::Error::IO`] when the directory is invalid.
 	/// - [`crate::error::Error::Parse`] when extracting the build id from `buildID.txt`.
-	pub fn new(config: &crate::CkanRsConfig, builds: &std::collections::HashMap<i32, String>, name: String, game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> crate::Result<GameInstance>{
+	pub fn new(config: &crate::CkanRsConfig, builds: &std::collections::HashMap<i32, String>, name: String, game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> crate::Result<GameInstance> {
 		let instances_dir = config.data_dir().join("instances");
 		if !instances_dir.exists() {
 			std::fs::create_dir_all(&instances_dir)?;
@@ -62,9 +62,8 @@ impl GameInstance {
 			let id = id.ok_or_else(|| crate::Error::Parse("Build ID not found in buildID.txt".to_string()))?;
 			
 			if let Some(s) = builds.get(&id) {
-				vec![package::KspVersion::try_from(s.as_str()).expect("builds.json contains invalid ksp version.")]
+				vec![package::KspVersion::try_from(s.as_str()).expect("builds.json ksp version string should be valid.")]
 			} else {
-				log::error!("builds.json missing build id {}, try updating metadb.", id);
 				return Err(crate::Error::Parse(format!("builds.json missing build id {}, try updating metadb.", id)))
 			}
 		};

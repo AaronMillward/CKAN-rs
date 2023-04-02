@@ -15,7 +15,7 @@ async fn main() {
 	
 		let parsed_options = match opts.parse(&args[1..]) {
 			Ok(m)  => { m }
-			Err(e) => { log::error!("Unable to parse options: {}", e); return }
+			Err(e) => { println!("Unable to parse options: {}", e); return }
 		};
 		
 		if parsed_options.opt_present("h") {
@@ -32,23 +32,10 @@ async fn main() {
 		ckan_rs::CkanRsConfig::default()
 	});
 
-	async fn genreate_and_save_new_metadb(config: &ckan_rs::CkanRsConfig) -> Result<ckan_rs::MetaDB, ()> {
-		match ckan_rs::metadb::generate_latest().await {
-			Ok(db) => {
-				match db.save_to_disk(config) {
-					Ok(_) => {},
-					Err(e) => {
-						log::error!("Failed to save MetaDB after failed load: {}", e);
-						return Err(());
-					},
-				}
-				Ok(db)
-			},
-			Err(e) => {
-				log::error!("Failed to generate MetaDB after failed load: {}", e);
-				Err(())
-			},
-		}
+	async fn genreate_and_save_new_metadb(config: &ckan_rs::CkanRsConfig) -> ckan_rs::Result<ckan_rs::MetaDB> {
+		let db = ckan_rs::metadb::generate_latest().await?;
+		db.save_to_disk(config)?;
+		Ok(db)
 	}
 
 	let db = match ckan_rs::MetaDB::load_from_disk(&config) {
@@ -61,8 +48,8 @@ async fn main() {
 							let res = genreate_and_save_new_metadb(&config).await;
 							match res {
 								Ok(db) => db, 
-								Err(_) => {
-									log::error!("Failed to generate metadb");
+								Err(e) => {
+									log::error!("Failed to generate and save metadb: {}", e);
 									return
 								}
 							}
@@ -244,7 +231,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installation::download::download_packages_content(config, &client, packages.as_slice(), false).await;
+		let download_results = ckan_rs::installation::download::download_packages_content(config, &client, packages.as_slice(), false).await?;
 		for result in &download_results {
 			if result.1.is_err() { log::error!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}

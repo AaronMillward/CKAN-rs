@@ -19,6 +19,7 @@ pathdiff = "0.2.1"
 walkdir = "2.3.2"
 regex = "1.7.1"
 log = "0.4.17"
+thiserror = "1.0.40"
 
 [dev-dependencies]
 ckan-rs-test-utils = { path = "../ckan-rs-test-utils" }

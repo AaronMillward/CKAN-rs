@@ -1,15 +1,16 @@
 //! 
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ContentError {
+	#[error("package is not installable.")]
 	PackageNotInstallable,
+	#[error("package uses an unsupported content type.")]
 	UnsupportedContentType,
-	IO(std::io::Error),
-	Zip(zip::result::ZipError),
+	#[error("IO error: {0}")]
+	IO(#[from] std::io::Error),
+	#[error("zip error: {0}")]
+	Zip(#[from] zip::result::ZipError),
 }
-
-crate::error_wrapper!(ContentError, ContentError::IO, std::io::Error);
-crate::error_wrapper!(ContentError, ContentError::Zip, zip::result::ZipError);
 
 impl crate::game_instance::GameInstance {
 	pub fn get_package_deployment_path(&self, id: impl AsRef<crate::metadb::package::PackageIdentifier>) -> std::path::PathBuf {
@@ -34,13 +35,11 @@ pub fn extract_content_to_deployment(config: &crate::CkanRsConfig, instance: &cr
 	if ct == "application/zip" {
 		let download_path = super::download::get_package_download_path(config, &package.identifier);
 		let deploy_path = instance.get_package_deployment_path(package);
-		let mut zip = std::fs::File::open(download_path)
-			.map_err(ContentError::IO)
-			.and_then(|f|
-				zip::ZipArchive::new(f).map_err(ContentError::Zip)
-			)?;
+		let mut zip = zip::ZipArchive::new(
+			std::fs::File::open(download_path)?
+		)?;
 		
-		std::fs::create_dir_all(deploy_path.with_file_name("")).unwrap();
+		std::fs::create_dir_all(deploy_path.with_file_name(""))?;
 		match zip.extract(deploy_path) {
 			Ok(_) => Ok(()),
 			Err(_) => todo!(), /* TODO: Clear left over files and return error */

@@ -23,10 +23,7 @@ impl install::InstallDirective {
 
 		let mut directives = Vec::<Self>::new();
 
-		if !v.is_array() {
-			return Err(Parse("value must be an array".to_string()));
-		}
-		for obj in v.as_array().unwrap() {
+		for obj in v.as_array().ok_or(Parse("value must be an array".to_string()))? {
 			if !obj.is_object() {
 				return Err(Parse("array elements must be objects".to_string()));
 			}
@@ -274,12 +271,12 @@ impl Package {
 			download_content_type: get_val_optional(obj, "download_content_type")?,
 			install_size: get_val_optional(obj, "install_size")?,
 			release_date: get_val_optional(obj, "release_date")?,
-			depends: obj.get("depends").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			recommends: obj.get("recommends").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			suggests: obj.get("suggests").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			supports: obj.get("supports").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			conflicts: obj.get("conflicts").map_or_else(Vec::<relationship::Relationship>::default, |v| relationship::from_json(v).expect("couldn't read relationship from JSON")),
-			replaced_by: obj.get("replaced-by").map(|v| relationship::PackageDescriptor::from_json(v).expect("couldn't read relationship from JSON")),
+			depends: obj.get("depends").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
+			recommends: obj.get("recommends").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
+			suggests: obj.get("suggests").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
+			supports: obj.get("supports").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
+			conflicts: obj.get("conflicts").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
+			replaced_by: obj.get("replaced-by").try_map(relationship::PackageDescriptor::from_json)?,
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			provides: {
 				obj.get("provides").and_then(|value|

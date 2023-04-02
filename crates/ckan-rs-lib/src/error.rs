@@ -1,33 +1,23 @@
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum Error {
-	Reqwest(reqwest::Error),
-	IO(std::io::Error),
-	SerdeJSON(serde_json::Error),
+	#[error("reqwest error: {0}")]
+	Reqwest(#[from] reqwest::Error),
+	#[error("IO error: {0}")]
+	IO(#[from] std::io::Error),
+	#[error("JSON error: {0}")]
+	SerdeJSON(#[from] serde_json::Error),
+	#[error("parsing error: {0}")]
 	Parse(String),
+	#[error("validation error: {0}")]
 	Validation(String),
+	#[error("selection invalid")]
 	InvalidSelection,
-	Download(crate::installation::download::DownloadError),
+	#[error("downloader failed")]
+	Download(#[from] crate::installation::download::DownloadError),
+	#[error("already exists")]
 	AlreadyExists,
 }
-
-impl std::fmt::Display for Error {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{:?}", self)
-	}
-}
-
-impl std::error::Error for Error {}
-
-#[macro_export]
-macro_rules! error_wrapper(
-	($errortype:ty, $error:expr, $t:ty) => (
-		impl From<$t> for $errortype { fn from(e: $t) -> Self { $error(e) } }
-	)
-);
-
-error_wrapper!(Error, Error::Reqwest  , reqwest::Error);
-error_wrapper!(Error, Error::IO       , std::io::Error);
-error_wrapper!(Error, Error::SerdeJSON, serde_json::Error);
-error_wrapper!(Error, Error::Download, crate::installation::download::DownloadError);

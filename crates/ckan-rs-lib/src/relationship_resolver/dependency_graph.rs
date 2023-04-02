@@ -140,7 +140,7 @@ fn add_node_edges_from_package(graph: &mut DependencyGraph, package: &package::P
 /// - This method is also not concerned with the type of node it is being applied to.
 fn clear_nodes_requirements(graph: &mut DependencyGraph, src: NodeIndex) {
 	for id in graph.edges_directed(src, Outgoing).map(|e| e.id()).collect::<Vec<_>>() {
-		let (_, target) = graph.edge_endpoints(id).unwrap();
+		let (_, target) = graph.edge_endpoints(id).expect("edge should exist when being iterated over.");
 		if let NodeData::Candidate(_, data) = &mut graph[target] { data.dirty = true; }
 		if matches!(graph[target], NodeData::Decision) {
 			/* XXX: Does this remove all the nodes edges? doc is unclear */

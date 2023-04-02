@@ -4,29 +4,13 @@
 
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum TestUtilError {
-	IO(std::io::Error),
-	FSExtra(fs_extra::error::Error),
+	#[error("IO error: {0}")]
+	IO(#[from] std::io::Error),
+	#[error("FSExtra error: {0}")]
+	FSExtra(#[from] fs_extra::error::Error),
 }
-
-impl std::fmt::Display for TestUtilError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{:?}", self)
-	}
-}
-
-impl std::error::Error for TestUtilError {}
-
-#[macro_export]
-macro_rules! error_wrapper(
-	($errortype:ty, $error:expr, $t:ty) => (
-		impl From<$t> for $errortype { fn from(e: $t) -> Self { $error(e) } }
-	)
-);
-
-error_wrapper!(TestUtilError, TestUtilError::IO, std::io::Error);
-error_wrapper!(TestUtilError, TestUtilError::FSExtra, fs_extra::error::Error);
 
 pub fn create_fake_game_instance() -> Result<PathBuf, TestUtilError> {
 	let dir = tempfile::tempdir()?;

@@ -12,30 +12,21 @@ pub struct DecisionInfo {
 }
 
 /// These errors halt the progression of the resolver.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DeterminePackageError {
 	/// Identifier does not exist at all, not even as a virtual.
+	#[error("identifier not found.")]
 	IdentifierDoesNotExist,
 	/// There are no packages within the version bounds.
+	#[error("no package found with the required versions")]
 	NoCompatibleVersion,
 	/// There are no packages compatible with the game versions.
+	#[error("no package is compatible with the required game version.")]
 	NoCompatibleGameVersion,
 	/// The versions bounds placed on this package do not have any intersection making them impossible to fulfill.
+	#[error("version requirements impossible to fulfill.")]
 	VersionBoundsImcompatible,
 }
-
-impl std::fmt::Display for DeterminePackageError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			DeterminePackageError::IdentifierDoesNotExist => write!(f, "The package identifier does not exist in MetaDB."),
-			DeterminePackageError::NoCompatibleVersion => write!(f, "This package has no compatible version."),
-			DeterminePackageError::NoCompatibleGameVersion => write!(f, "This package is not compatible with the selected game version(s)."),
-			DeterminePackageError::VersionBoundsImcompatible => write!(f, "The package has no version supporting all requirements."),
-		}
-	}
-}
-
-impl std::error::Error for DeterminePackageError {}
 
 pub enum ResolverStatus {
 	/// The resolve has been succsessful, all packages are valid and compatible with each other.
@@ -290,7 +281,7 @@ impl<'db> ResolverProcessor<'db> {
 			} else if matching_packages_providing.len() == 1 {
 				/* There's only one package providing so it's a real package */
 
-				let mut m: Vec<_> = matching_packages_providing.into_values().next().unwrap().into_iter().mod_version_matches(bounds).collect();
+				let mut m: Vec<_> = matching_packages_providing.into_values().next().expect("next should work when len() == 1").into_iter().mod_version_matches(bounds).collect();
 				if m.is_empty() { return Err(DeterminePackageError::NoCompatibleVersion); }
 				m = m.into_iter().ksp_version_matches(self.compatible_ksp_versions.clone()).collect();
 				if m.is_empty() { return Err(DeterminePackageError::NoCompatibleGameVersion); }
@@ -302,7 +293,7 @@ impl<'db> ResolverProcessor<'db> {
 				*/
 
 				m.sort();
-				let latest = m.get(0).cloned().unwrap();
+				let latest = m[0];
 
 				set_node_as_package(&mut self.dep_graph, src, latest);
 				
