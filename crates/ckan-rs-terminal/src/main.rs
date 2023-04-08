@@ -220,18 +220,12 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 		println!("Input invalid.")
 	}
 	
-	/* TODO: Move request client internally. */
-	let client = reqwest::Client::builder()
-		.https_only(config.https_only())
-		.build()
-		.unwrap();
-
 	let packages = packages.iter()
 		.map(|m| db.get_from_unique_id(m).expect("metadb package not found"))
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installation::download::download_packages_content(config, &client, packages.as_slice(), false).await?;
+		let download_results = ckan_rs::installation::download::download_packages_content(config, packages.as_slice(), false).await;
 		for result in &download_results {
 			if result.1.is_err() { log::error!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}

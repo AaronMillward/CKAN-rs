@@ -5,6 +5,7 @@ pub struct CkanRsConfig {
 	download_dir: std::path::PathBuf,
 	data_dir: std::path::PathBuf,
 	https_only: bool,
+	do_checksums: bool,
 }
 
 impl Default for CkanRsConfig {
@@ -40,7 +41,8 @@ impl Default for CkanRsConfig {
 				std::fs::create_dir_all(&path).expect("failed to create data directory.");
 				path
 			},
-			https_only: true
+			https_only: true,
+			do_checksums: true,
 		}
 	}
 }
@@ -77,6 +79,13 @@ impl CkanRsConfig {
 	}
 	pub fn set_https_only(&mut self, https_only: bool) {
 		self.https_only = https_only;
+	}
+
+	pub fn get_do_checksums(&self) -> bool {
+		self.do_checksums
+	}
+	pub fn set_do_checksums(&mut self, do_checksums: bool) {
+		self.do_checksums = do_checksums;
 	}
 
 	/// Loads the config file from a file.

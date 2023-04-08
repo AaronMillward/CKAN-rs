@@ -65,17 +65,12 @@ async fn full_install() {
 	
 	instance.set_compatible_ksp_versions(compatible_ksp_versions);
 
-	let client = reqwest::Client::builder()
-		.https_only(config.https_only())
-		.build()
-		.unwrap();
-
 	let packages = packages.iter()
 		.map(|m| db.get_from_unique_id(m).expect("metadb package not found"))
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installation::download::download_packages_content(&config, &client, packages.as_slice(), false).await.unwrap();
+		let download_results = ckan_rs::installation::download::download_packages_content(&config, packages.as_slice(), false).await;
 		for result in download_results {
 			if result.1.is_err() { panic!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}

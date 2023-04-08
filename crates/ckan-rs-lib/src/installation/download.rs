@@ -7,6 +7,8 @@ pub enum DownloadError {
 	/// Given package cannot be downloaded as it has no download information.
 	#[error("given package does not have downloadable content.")]
 	PackageMissingDownloadFields,
+	#[error("downloaded content hash does not match hash in package.")]
+	DifferentHashes,
 	#[error("reqwest error: {0}")]
 	Reqwest(#[from] reqwest::Error),
 	#[error("IO error: {0}")]
@@ -21,26 +23,23 @@ pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metad
 /// 
 /// # Arguments
 /// - `config` - Required for getting download paths.
-/// - `client` - Client to download package contents with.
 /// - `packages` - List of packages to download.
 /// - `force` - Overwrite existing downloads.
-pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, client: &reqwest::Client, packages: &[&'info crate::metadb::Package], force: bool) 
--> crate::Result<Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>> {
-	let mut results = Vec::<(&crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>::new();
-	
-	for package in packages {
+pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, packages: &[&'info crate::metadb::Package], force: bool) 
+-> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
+
+	async fn download_package(config: &crate::CkanRsConfig, client: &reqwest::Client, package: &crate::metadb::Package, force: bool)
+	-> Result<std::path::PathBuf, DownloadError> {
 		let download_path = get_package_download_path(config, &package.identifier);
 		if download_path.exists() && !force {
 			log::info!("Package {} contents already downloaded, skipping.", &package.identifier);
-			results.push((package, Ok(download_path)));
-			continue;
+			return Ok(download_path);
 		}
 		
 		let url = if let Some(url) = &package.download {
 			url
 		} else {
-			results.push((package, Err(DownloadError::PackageMissingDownloadFields)));
-			continue;
+			return Err(DownloadError::PackageMissingDownloadFields);
 		};
 		
 		tokio::fs::create_dir_all(download_path.with_file_name("")).await?;
@@ -58,10 +57,38 @@ pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, clie
 		log::info!("Writing package download to disk: {}", package.identifier);
 		tokio::io::copy(&mut content.as_slice(), &mut download_file).await?;
 		
-		/* TODO: Check SHA sums */
-	
-		results.push((package, Ok(download_path)));
+		if config.get_do_checksums() {
+			if let Some(package_hash) = &package.download_hash_sha256 {
+				let content_hash = sha256::digest(content.as_slice());
+				if String::from_utf8_lossy(package_hash) != content_hash {
+					return Err(DownloadError::DifferentHashes);
+				}
+			}
+			else if let Some(_package_hash) = &package.download_hash_sha1 {
+				/* TODO: Sha1 hashing */
+				/* XXX: Sha1 crate doesn't work as the documentation for it says so we need to find a better crate for this */
+				unimplemented!("Sha1 hashing not yet implemented.")
+			}
+		}
+
+		Ok(download_path)
 	}
 
-	Ok(results)
+	let mut results = Vec::<(&crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>::new();
+
+	let client = reqwest::Client::builder()
+		.https_only(config.https_only())
+		.build()
+		.expect("failed to create reqwest client.");
+
+	for package in packages {
+		results.push(
+			(
+				package, 
+				download_package(config, &client, package, force).await,
+			)
+		);
+	}
+
+	results
 }
