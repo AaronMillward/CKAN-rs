@@ -22,7 +22,7 @@ where T: std::cmp::PartialEq + std::cmp::Ord + std::clone::Clone,
 			(None, Some(min), None) => Ok(VersionBounds::MinOnly(min)),
 			(None, Some(min), Some(max)) => Ok(VersionBounds::MinMax(min, max)),
 			(Some(e), None, None) => Ok(VersionBounds::Explicit(e)),
-			_ => Err(crate::Error::Parse("using both version and min or max version constraint".to_string()))
+			_ => Err(crate::Error::Parse("Attempted to create bounds with both explicit and min or max version constraint".to_string()))
 		}
 	}
 

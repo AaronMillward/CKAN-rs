@@ -9,7 +9,7 @@ use crate::metadb::package::*;
 pub struct ResolverBuilder<'db> {
 	dep_graph: Option<DependencyGraph>,
 	metadb: &'db MetaDB,
-	compatible_ksp_versions: Vec<KspVersion>,
+	compatible_ksp_versions: Vec<KspVersionReal>,
 
 	requirements: Vec<InstallRequirement>,
 }
@@ -36,7 +36,7 @@ impl<'db> ResolverBuilder<'db> {
 		self
 	}
 
-	pub fn compatible_ksp_versions(mut self, ksp_versions: impl IntoIterator<Item = KspVersion>) -> Self {
+	pub fn compatible_ksp_versions(mut self, ksp_versions: impl IntoIterator<Item = KspVersionReal>) -> Self {
 		self.compatible_ksp_versions = ksp_versions.into_iter().collect();
 		self
 	}

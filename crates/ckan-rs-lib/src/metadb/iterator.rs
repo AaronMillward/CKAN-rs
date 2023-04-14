@@ -6,7 +6,7 @@ pub struct KspVersionMatches<'a, I>
 where
 	I: Iterator<Item = &'a super::package::Package>,
 {
-	match_versions: Vec<KspVersion>,
+	match_versions: Vec<KspVersionReal>,
 	underlying: I,
 }
 
@@ -18,20 +18,10 @@ where
 
 	fn next(&mut self) -> Option<Self::Item> {
 		for package in self.underlying.by_ref() {
-			/* TODO: ksp_version_strict | this needs to be fixed in KspVersion */
-
-			let does_match = match &package.ksp_version {
-				VersionBounds::Any => true,
-				VersionBounds::Explicit(v) => self.match_versions.iter().any(|ksp| KspVersion::is_sub_version(ksp, v)),
-				VersionBounds::MinOnly(min) => self.match_versions.iter().any(|ksp| ksp <= min),
-				VersionBounds::MaxOnly(max) => self.match_versions.iter().any(|ksp| ksp <= max),
-				VersionBounds::MinMax(min, max) => self.match_versions.iter().any(|ksp| min <= ksp && ksp <= max),
-			};
-
-			if does_match {
-				return Some(package)
-			} else {
-				continue;
+			for v in &self.match_versions {
+				if package.ksp_version.is_version_compatible(v, package.ksp_version_strict) {
+					return Some(package)
+				}
 			}
 		}
 		None
@@ -41,7 +31,7 @@ where
 pub trait KspVersionMatchesExt<'a>: Iterator<Item = &'a Package>
 {
 	/// Filters the iterator to packages compatible with `match_versions`
-	fn ksp_version_matches(self, match_versions: Vec<KspVersion>) -> KspVersionMatches<'a, Self>
+	fn ksp_version_matches(self, match_versions: Vec<KspVersionReal>) -> KspVersionMatches<'a, Self>
 	where
 		Self: Sized,
 	{

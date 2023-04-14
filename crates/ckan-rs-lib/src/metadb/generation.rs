@@ -47,6 +47,10 @@ impl MetaDB {
 		for (i, entry) in archive.entries()?.enumerate() {
 			let mut entry = entry.map_err(|_| Parse("tar archive entries unreadable".to_string()))?;
 
+			if entry.header().entry_type() == tar::EntryType::Directory {
+				continue;
+			}
+
 			if entry.path()?.to_string_lossy() == "CKAN-meta-master/builds.json" {
 				log::trace!("Processing builds.json");
 				let mut buffer = Vec::<u8>::new();
@@ -57,10 +61,6 @@ impl MetaDB {
 					.get("builds").expect("builds.json root object should contain key \"builds\".")
 					.clone()
 				)?;
-			}
-
-			if entry.size() == 0 {
-				log::warn!("zero sized entry, {} in metadb archive", i);
 				continue;
 			}
 

@@ -18,7 +18,7 @@ async fn full_install() {
 		}
 	};
 
-	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
+	let compatible_ksp_versions = vec![KspVersionReal::new("1.12").expect("failed to create version from string."), KspVersionReal::new("1.11").expect("failed to create version from string.")];
 	
 	let requirements = vec![
 		InstallRequirement {identifier: "ModuleManager".to_string(), ..Default::default() },

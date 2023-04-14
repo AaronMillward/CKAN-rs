@@ -15,7 +15,7 @@ async fn resolve_dependency() {
 		}
 	};
 
-	let compatible_ksp_versions = vec![KspVersion::new("1.12"), KspVersion::new("1.11")];
+	let compatible_ksp_versions = vec![KspVersionReal::new("1.12").expect("failed to create version from string."), KspVersionReal::new("1.11").expect("failed to create version from string.")];
 	
 	let requirements = vec![
 		InstallRequirement {identifier: "MechJeb2".to_string(), required_version: PackageVersionBounds::Explicit(PackageVersion::new("0:2.12.0.0").expect("failed to create version string.")) },

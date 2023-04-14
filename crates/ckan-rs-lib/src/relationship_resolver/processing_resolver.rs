@@ -56,7 +56,7 @@ pub struct ResolverProcessor<'db> {
 	/// Tells the resolver which package to chose when faced with a decision
 	decisions: HashSet<String>,
 
-	compatible_ksp_versions: Vec<KspVersion>,
+	compatible_ksp_versions: Vec<KspVersionReal>,
 
 	dep_graph: DependencyGraph,
 	meta_node: NodeIndex,
@@ -72,7 +72,7 @@ impl<'db> ResolverProcessor<'db> {
 	/// - `metadb`: `MetaDB` containing the packages to resolve with.
 	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
 	/// - `compatible_ksp_versions`: Packages for these versions of the game can be installed.
-	pub(super) fn new(metadb: &'db MetaDB, dep_graph: DependencyGraph, meta_node: NodeIndex, compatible_ksp_versions: Vec<KspVersion>) -> Self {
+	pub(super) fn new(metadb: &'db MetaDB, dep_graph: DependencyGraph, meta_node: NodeIndex, compatible_ksp_versions: Vec<KspVersionReal>) -> Self {
 		ResolverProcessor {
 			metadb,
 			decisions: Default::default(),

@@ -29,7 +29,7 @@ pub struct Package {
 	pub description: Option<String>,
 	pub release_status: ReleaseStatus,
 	pub ksp_version: KspVersionBounds,
-	pub ksp_version_strict: Option<bool>,
+	pub ksp_version_strict: bool,
 	pub tags: Option<Vec<String>>,
 	pub localizations: Option<Vec<String>>,
 	pub download_size: Option<u64>, /* *Really* Don't use anything lower than 64 here, 32 is only 4gb max size */
@@ -97,11 +97,11 @@ impl Package {
 
 /* CKAN Types */
 
-mod version_bounds;
+pub mod version_bounds;
 pub use version_bounds::VersionBounds;
 
-mod ksp_version;
-pub use ksp_version::KspVersion;
+pub mod ksp_version;
+pub use ksp_version::KspVersionReal;
 pub use ksp_version::KspVersionBounds;
 
 mod mod_version;

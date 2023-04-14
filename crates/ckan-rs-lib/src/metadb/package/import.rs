@@ -231,13 +231,27 @@ impl Package {
 				}
 			},
 			ksp_version: {
-				VersionBounds::new(
-					get_val_optional::<String>(obj, "ksp_version").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
-					get_val_optional::<String>(obj, "ksp_version_min").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
-					get_val_optional::<String>(obj, "ksp_version_max").map(|v| v.map(|s| KspVersion::from(s.as_str())))?,
+				KspVersionBounds::new_from_str(
+					get_val_optional::<String>(obj, "ksp_version")?,
+					get_val_optional::<String>(obj, "ksp_version_min")?,
+					get_val_optional::<String>(obj, "ksp_version_max")?,
 				)?
 			},
-			ksp_version_strict: serde_json::from_value(obj.get("ksp_version_strict").cloned().unwrap_or(Value::Bool(true))).map_err(|_| Parse("ksp_version_strict must be a boolean".to_string()))?,
+			ksp_version_strict: match obj.get("ksp_version_strict") {
+				/* XXX: 
+					The spec is weird about this one.
+					
+					"This field defaults to false, including for spec_versions less than v1.16,
+					however CKAN clients prior to v1.16 would only perform strict checking."
+					
+					So I would say the default needs to be false for spec versions >= v1.16
+					and otherwise true.
+				 */
+				Some(v) => {
+					v.as_bool().ok_or(Parse("ksp_version_strict must be a boolean".into()))?
+				},
+				None => false /* TODO: true for earlier spec versions */,
+			},
 			tags: get_one_or_many_string(obj, "tags").ok(), /* This does work */
 			localizations: get_one_or_many_string(obj, "localizations").ok(),
 			download_size: get_val_optional(obj, "download_size")?,
@@ -271,11 +285,11 @@ impl Package {
 			download_content_type: get_val_optional(obj, "download_content_type")?,
 			install_size: get_val_optional(obj, "install_size")?,
 			release_date: get_val_optional(obj, "release_date")?,
-			depends: obj.get("depends").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
-			recommends: obj.get("recommends").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
-			suggests: obj.get("suggests").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
-			supports: obj.get("supports").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
-			conflicts: obj.get("conflicts").try_map(relationship::from_json)?.ok_or(Parse("JSON missing a relationship key".into()))?,
+			depends: match obj.get("depends") { Some(v) => relationship::from_json(v)?, None => Default::default()},
+			recommends: match obj.get("recommends") { Some(v) => relationship::from_json(v)?, None => Default::default()},
+			suggests: match obj.get("suggests") { Some(v) => relationship::from_json(v)?, None => Default::default()},
+			supports: match obj.get("supports") { Some(v) => relationship::from_json(v)?, None => Default::default()},
+			conflicts: match obj.get("conflicts") { Some(v) => relationship::from_json(v)?, None => Default::default()},
 			replaced_by: obj.get("replaced-by").try_map(relationship::PackageDescriptor::from_json)?,
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			provides: {

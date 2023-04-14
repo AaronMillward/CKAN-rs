@@ -1,3 +1,5 @@
+use std::io::Write;
+
 #[tokio::main]
 async fn main() {
 	env_logger::init();
@@ -155,13 +157,13 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 
 	use ckan_rs::relationship_resolver::*;
 
-	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallRequirement {identifier: s.as_ref().to_string(), required_version: Default::default()}).collect();
+	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallRequirement {identifier: s.as_ref().into(), required_version: ckan_rs::metadb::package::VersionBounds::Any}).collect();
 	
 	let mut resolver = ResolverBuilder::new(db)
 		.compatible_ksp_versions(instance.get_compatible_ksp_versions().clone())
 		.add_package_requirements(requirements)
 		.build();
-		
+
 	let packages = loop {
 		match resolver.attempt_resolve() {
 			ResolverStatus::Complete => {
@@ -170,7 +172,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 			ResolverStatus::DecisionsRequired(infos) => {
 				for info in infos {
 					let mut options = info.options.clone();
-					options.sort(); /* We want to always choses the same option */
+					options.sort();
 					println!("Multiple providers of [{}]. select one.", info.source);
 					for (i,opt) in options.iter().enumerate() {
 						print!("{}) {} ", i, opt);
@@ -207,17 +209,19 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 
 
 	let stdin = std::io::stdin();
-	println!("Enable new packages? [y]/n");
+	print!("Enable new packages? [(y)/n] ");
+	let _ = std::io::stdout().flush();
 	loop {
 		let mut input = String::new();
-		if stdin.read_line(&mut input).is_ok() {
-			if input.to_lowercase() == "y" || input.is_empty() {
-				break;
-			} else if input.to_lowercase() == "n" {
-				return Err(Error::UserCancelled);
-			}
+		let _ = stdin.read_line(&mut input);
+		let input = input.trim().to_lowercase();
+		if input == "y" || input.is_empty() {
+			break;
+		} else if input == "n" {
+			return Err(Error::UserCancelled);
+		} else {
+			println!("\nInput invalid.")
 		}
-		println!("Input invalid.")
 	}
 	
 	let packages = packages.iter()

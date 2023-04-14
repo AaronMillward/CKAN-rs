@@ -9,7 +9,7 @@ pub mod filetracker;
 pub struct GameInstance {
 	name: String,
 	path: std::path::PathBuf,
-	compatible_ksp_versions: Vec<package::KspVersion>,
+	compatible_ksp_versions: Vec<package::KspVersionReal>,
 	enabled_packages: HashSet<package::PackageIdentifier>,
 	pub tracked: filetracker::TrackedFiles,
 	pub deployment_dir: std::path::PathBuf,
@@ -62,7 +62,7 @@ impl GameInstance {
 			let id = id.ok_or_else(|| crate::Error::Parse("Build ID not found in buildID.txt".to_string()))?;
 			
 			if let Some(s) = builds.get(&id) {
-				vec![package::KspVersion::try_from(s.as_str()).expect("builds.json ksp version string should be valid.")]
+				vec![package::KspVersionReal::try_from(s.as_str()).expect("builds.json ksp version string should be valid.")]
 			} else {
 				return Err(crate::Error::Parse(format!("builds.json missing build id {}, try updating metadb.", id)))
 			}
@@ -86,11 +86,11 @@ impl GameInstance {
 		&self.path
 	}
 
-	pub fn set_compatible_ksp_versions(&mut self, value: Vec<package::KspVersion>) {
+	pub fn set_compatible_ksp_versions(&mut self, value: Vec<package::KspVersionReal>) {
 		self.compatible_ksp_versions = value;
 	}
 
-	pub fn get_compatible_ksp_versions(&self) -> &Vec<package::KspVersion> {
+	pub fn get_compatible_ksp_versions(&self) -> &Vec<package::KspVersionReal> {
 		&self.compatible_ksp_versions
 	}
 
