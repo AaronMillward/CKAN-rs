@@ -1,12 +1,15 @@
 //! Downloads a packages content.
 
 use thiserror::Error;
+use crate::metadb::package::*;
 
+/// Errors that can occur during the download process.
 #[derive(Debug, Error)]
 pub enum DownloadError {
 	/// Given package cannot be downloaded as it has no download information.
 	#[error("given package does not have downloadable content.")]
 	PackageMissingDownloadFields,
+	/// The downloaded content hash does not match hash in the package.
 	#[error("downloaded content hash does not match hash in package.")]
 	DifferentHashes,
 	#[error("reqwest error: {0}")]
@@ -21,14 +24,17 @@ pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metad
 
 /// Downloads multiple package's contents.
 /// 
-/// # Arguments
+/// # Parameters
 /// - `config` - Required for getting download paths.
 /// - `packages` - List of packages to download.
 /// - `force` - Overwrite existing downloads.
-pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, packages: &[&'info crate::metadb::Package], force: bool) 
--> Vec<(&'info crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)> {
+/// 
+/// # Returns
+/// A vector of tuples containing a package to be downloaded and a result of the download.
+pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, packages: &[&'info Package], force: bool) 
+-> Vec<(&'info Package, Result<std::path::PathBuf, DownloadError>)> {
 
-	async fn download_package(config: &crate::CkanRsConfig, client: &reqwest::Client, package: &crate::metadb::Package, force: bool)
+	async fn download_package(config: &crate::CkanRsConfig, client: &reqwest::Client, package: &Package, force: bool)
 	-> Result<std::path::PathBuf, DownloadError> {
 		let download_path = get_package_download_path(config, &package.identifier);
 		if download_path.exists() && !force {
@@ -74,7 +80,7 @@ pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, pack
 		Ok(download_path)
 	}
 
-	let mut results = Vec::<(&crate::metadb::Package, Result<std::path::PathBuf, DownloadError>)>::new();
+	let mut results = Vec::<(&Package, Result<std::path::PathBuf, DownloadError>)>::new();
 
 	let client = reqwest::Client::builder()
 		.https_only(config.https_only())

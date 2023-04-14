@@ -1,5 +1,8 @@
+//! Types that describe how to install a packages contents.
+
 use serde::*;
 
+/// Describes where to find the installables within a packages content archive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SourceDirective {
 	/// The file or directory root that this directive pertains to.
@@ -10,6 +13,7 @@ pub enum SourceDirective {
 	FindRegExp(String),
 }
 
+/// Install directive that allows for extra control over installation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OptionalDirective {
 	/// The name to give the matching directory or file when installed.
@@ -32,7 +36,7 @@ pub struct InstallDirective {
 	pub source: SourceDirective,
 	pub install_to: String,
 	pub additional: Vec<OptionalDirective>,
-} 
+}
 
 impl InstallDirective {
 	pub fn new(source: SourceDirective, install_to: String, additional: Vec<OptionalDirective>) -> Self {

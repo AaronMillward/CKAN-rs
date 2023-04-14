@@ -160,7 +160,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallRequirement {identifier: s.as_ref().into(), required_version: ckan_rs::metadb::package::VersionBounds::Any}).collect();
 	
 	let mut resolver = ResolverBuilder::new(db)
-		.compatible_ksp_versions(instance.get_compatible_ksp_versions().clone())
+		.compatible_ksp_versions(instance.compatible_ksp_versions().clone())
 		.add_package_requirements(requirements)
 		.build();
 

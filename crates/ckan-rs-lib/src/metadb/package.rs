@@ -25,10 +25,10 @@ pub struct Package {
 	pub license: Vec<String>,
 	
 	/* Optional Fields */
-	pub install: Vec<InstallDirective>,
+	pub install: Vec<install::InstallDirective>,
 	pub description: Option<String>,
 	pub release_status: ReleaseStatus,
-	pub ksp_version: KspVersionBounds,
+	pub ksp_version: ksp_version::KspVersionBounds,
 	pub ksp_version_strict: bool,
 	pub tags: Option<Vec<String>>,
 	pub localizations: Option<Vec<String>>,
@@ -97,34 +97,46 @@ impl Package {
 
 /* CKAN Types */
 
-pub mod version_bounds;
+mod version_bounds;
 pub use version_bounds::VersionBounds;
 
-pub mod ksp_version;
+mod ksp_version;
 pub use ksp_version::KspVersionReal;
 pub use ksp_version::KspVersionBounds;
 
-mod mod_version;
-pub use mod_version::PackageVersion;
+mod package_version;
+pub use package_version::PackageVersion;
+pub use package_version::PackageVersionBounds;
 
-mod install;
-pub use install::InstallDirective;
-pub use install::SourceDirective;
-pub use install::OptionalDirective;
+pub mod install;
 
-mod release;
-pub use release::ReleaseStatus;
 
 mod relationship;
 pub use relationship::PackageIdentifier;
-pub use relationship::PackageVersionBounds;
-pub use relationship::Relationship;
 pub use relationship::PackageDescriptor;
+pub use relationship::Relationship;
 pub use relationship::does_package_fulfill_relationship;
 pub use relationship::does_package_provide_descriptor;
 pub use relationship::does_package_match_descriptor;
 
-mod kind;
-pub use kind::Kind;
+/// The stability of a package.
+#[derive(Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ReleaseStatus {
+	#[default] Stable,
+	Testing,
+	Development,
+}
+
+/* TODO: Move Kind-dependent info (such as download url) into this enum's variants */
+/// The type of a package.
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Kind {
+	/// A normal installable module.
+	#[default] Package,
+	/// A distributable .ckan file that has relationships to other mods while having no download of its own.
+	MetaPackage,
+	/// A paid expansion from SQUAD, which CKAN can detect but not install. Also has no download.
+	DLC,
+}
 
 mod import;

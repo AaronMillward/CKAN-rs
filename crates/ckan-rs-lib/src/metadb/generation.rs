@@ -9,7 +9,7 @@ async fn get_latest_archive() -> crate::Result<Vec<u8>> {
 	Ok(reqwest::get("https://github.com/KSP-CKAN/CKAN-meta/archive/master.tar.gz").await?.bytes().await.map(|v| v.to_vec())?)
 }
 
-/// Download and then generate the latest MetaDB.
+/// Download and generate the latest MetaDB.
 pub async fn generate_latest() -> crate::Result<MetaDB> {
 	log::trace!("Generating latest MetaDB.");
 	let archive_data = get_latest_archive().await?;
@@ -24,7 +24,7 @@ pub async fn generate_latest() -> crate::Result<MetaDB> {
 
 impl MetaDB {
 	/// Creates a new MetaDB using a tar archive.
-	/// # Arguments
+	/// # Parameters
 	/// - `archive` - A tarball containing the metadb json files, should *not* be compressed.
 	/// - `do_validation` - Usually enabled when the repo can't be trusted to validate their ckans. should be `false` for most cases as it is slow.
 	pub fn generate_from_archive<R>(archive: &mut tar::Archive<R>, do_validation: bool) -> crate::Result<Self>
@@ -32,6 +32,8 @@ impl MetaDB {
 	{
 		log::trace!("Generating MetaDB from given archive.");
 		/* TODO: Determine if this is IO or CPU bound causing it to take 15 sec to generate. */
+		/* TODO: Some entries fail when validated against the schema, should this happen? surely the remote repo
+		doesn't have incorrect entries? */
 
 		let mut packages = HashSet::<Package>::new();
 		let mut builds = HashMap::<i32, String>::new();

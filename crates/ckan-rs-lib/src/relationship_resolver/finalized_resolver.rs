@@ -6,6 +6,7 @@ use petgraph::prelude::*;
 use super::DependencyGraph;
 use super::NodeData;
 
+/// A completed resolver.
 pub struct ResolverFinalized {
 	dep_graph: DependencyGraph,
 	candidates: Vec<NodeIndex>,

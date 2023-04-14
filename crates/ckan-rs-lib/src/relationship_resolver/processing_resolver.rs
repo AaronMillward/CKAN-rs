@@ -1,5 +1,3 @@
-//!
-
 use super::*;
 
 #[derive(Debug)]
@@ -28,6 +26,7 @@ pub enum DeterminePackageError {
 	VersionBoundsImcompatible,
 }
 
+/// The state of the resolve in progress.
 pub enum ResolverStatus {
 	/// The resolve has been succsessful, all packages are valid and compatible with each other.
 	Complete,
@@ -40,13 +39,9 @@ pub enum ResolverStatus {
 	Failed(Vec<(String, DeterminePackageError)>),
 }
 
-/// RelationshipResolver will take a list of top level requirements and generate a list of required packages
+/// Performs the resolve task.
 /// 
-/// # Usage
-/// First create a resolver using `RelationshipResolver::new`
-/// then call `RelationshipResolver::attempt_resolve` until complete while answering any decisions presented.
-/// 
-/// ## Failures
+/// # Errors
 /// The resolver may fail for reasons described in [`DeterminePackageError`]
 /// when these occur they represent an error the resolver can't solve without human intervention.
 #[derive(Debug)]
@@ -68,7 +63,7 @@ pub struct ResolverProcessor<'db> {
 impl<'db> ResolverProcessor<'db> {
 	/// Creates a new `RelationshipResolver`.
 	/// 
-	/// # Arguments
+	/// # Parameters
 	/// - `metadb`: `MetaDB` containing the packages to resolve with.
 	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
 	/// - `compatible_ksp_versions`: Packages for these versions of the game can be installed.
@@ -86,7 +81,7 @@ impl<'db> ResolverProcessor<'db> {
 
 	/// Run the resolver process until complete or stopped by a decision or failure.
 	/// 
-	/// See `RelationshipResolver` documentation for more info on the resolve process.
+	/// See [`relationship_resolver`](crate::relationship_resolver) documentation for more info on the resolve process.
 	pub fn attempt_resolve(&mut self) -> ResolverStatus {
 		/* Overview of process
 		We attempt to uncover as many edges as possible using a breadth first approach. we do this for the following reasons;
@@ -324,7 +319,8 @@ impl<'db> ResolverProcessor<'db> {
 
 	/// Finalize to get data about the completed resolve.
 	/// 
-	/// `Err` if the resolve is not complete.
+	/// # Errors
+	/// If the resolve is not complete.
 	pub fn finalize(self) -> Result<finalized_resolver::ResolverFinalized, Box<Self>> {
 		if self.is_complete {
 			Ok(finalized_resolver::ResolverFinalized::new(self.dep_graph, self.compatible_candidates))

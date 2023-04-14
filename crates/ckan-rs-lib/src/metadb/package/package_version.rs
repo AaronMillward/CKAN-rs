@@ -1,5 +1,12 @@
 use serde::*;
 
+/// The version of a package.
+/// 
+/// # Format
+/// Package versions follow a format `[epoch:]mod_version`.
+/// - `epoch` is used to correct errors in versioning schemes or
+/// organize versions that are difficult to interpret.
+/// - `version` can technically be *any* string according to the spec.
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct PackageVersion {
 	epoch: i32,
@@ -36,6 +43,24 @@ impl PartialEq for PackageVersion {
 
 impl Ord for PackageVersion {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		/* NOTE:
+			Here's an extract from the spec explaining this mess.
+			
+			"
+			When comparing two version numbers, first the epoch of each are compared, then the mod_version if epoch is equal. epoch is compared numerically. The mod_version part is compared by the package management system using the following algorithm:
+
+			The strings are compared from left to right.
+
+			First the initial part of each string consisting entirely of non-digit characters is determined. These two parts (one of which may be empty) are compared lexically. If a difference is found it is returned. The lexical comparison is a comparison of ASCII values modified so that all the letters sort earlier than all the non-letters.
+
+			Then the initial part of the remainder of each string which consists entirely of digit characters is determined. The numerical values of these two parts are compared, and any difference found is returned as the result of the comparison. For these purposes an empty string (which can only occur at the end of one or both version strings being compared) counts as zero.
+
+			These two steps (comparing and removing initial non-digit strings and initial digit strings) are repeated until a difference is found or both strings are exhausted.
+
+			Note that the purpose of epochs is to allow us to leave behind mistakes in version numbering, and to cope with situations where the version numbering scheme changes. It is not intended to cope with version numbers containing strings of letters which the package management system cannot interpret (such as ALPHA or pre-), or with silly orderings.
+			"
+		 */
+
 		match self.epoch.cmp(&other.epoch) {
 			std::cmp::Ordering::Equal => {
 				fn get_string_until_numeric(s: &str) -> (&str,&str) {
@@ -151,6 +176,8 @@ impl std::fmt::Display for PackageVersion {
 		write!(f, "{}:{}", self.epoch, self.version)
 	}
 }
+
+pub type PackageVersionBounds = crate::metadb::package::version_bounds::VersionBounds<PackageVersion>;
 
 #[cfg(test)]
 mod test {

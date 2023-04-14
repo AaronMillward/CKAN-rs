@@ -28,6 +28,7 @@ where
 	}
 }
 
+/// Filters an iterator to packages compatible with a set of [`KspVersionReal`].
 pub trait KspVersionMatchesExt<'a>: Iterator<Item = &'a Package>
 {
 	/// Filters the iterator to packages compatible with `match_versions`
@@ -68,6 +69,7 @@ where
 	}
 }
 
+/// Filters an iterator to packages matching the requirements of a [`PackageVersionBounds`].
 pub trait ModVersionMatchesExt<'a>: Iterator<Item = &'a Package>
 {
 	/// Filters the iterator to packages matching the requirements of `bounds`
@@ -106,10 +108,11 @@ where
 	}
 }
 
+/// Filters an iterator to only packages matching a descriptor including `provides` relationships.
 pub trait DescriptorMatchesExt<'a>: Iterator<Item = &'a Package>
 {
 	/// Filters the iterator to only packages matching the descriptor including `provides` relationships.
-	/// This means the output may not be all the same identifier.
+	/// This means the output may not all be the same identifier.
 	fn descriptor_matches(self, descriptor: PackageDescriptor) -> DescriptorMatches<'a, Self>
 	where
 		Self: Sized,
@@ -120,9 +123,10 @@ pub trait DescriptorMatchesExt<'a>: Iterator<Item = &'a Package>
 
 impl<'a, I: Iterator<Item = &'a Package>> DescriptorMatchesExt<'a> for I {}
 
+/// Filters an iterator to packages providing a [`PackageDescriptor`]
 pub trait GetProvidersExt<'a>: Iterator<Item = &'a Package>
 {
-	/// Filters the iterator to packages compatible with `match_versions`
+	/// Filters the iterator to packages providing a [`PackageDescriptor`]
 	fn get_packages_providing(mut self, descriptor: &PackageDescriptor) -> HashMap<String, Vec<&'a Package>>
 	where
 		Self: Sized,

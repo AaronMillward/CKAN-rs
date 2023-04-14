@@ -1,9 +1,11 @@
-//! 
+//! Package downloadable content extraction.
 
 #[derive(Debug, thiserror::Error)]
 pub enum ContentError {
+	/// The package is not installable. likely due to [`kind`](crate::metadb::package::Package::kind) not being [`Package`](crate::metadb::package::Kind::Package)
 	#[error("package is not installable.")]
 	PackageNotInstallable,
+	/// The package uses an unsupported content type.
 	#[error("package uses an unsupported content type.")]
 	UnsupportedContentType,
 	#[error("IO error: {0}")]
@@ -22,7 +24,7 @@ impl crate::game_instance::GameInstance {
 /* TODO: Remove from public API */
 /// Extracts a packages contents to the deployment directory of a given instance.
 /// 
-/// # Arguments
+/// # Parameters
 /// - `config` - Contains the download cache.
 /// - `instance` - The game instance to extract the content for.
 /// - `package` - The package to extract.
@@ -30,7 +32,7 @@ impl crate::game_instance::GameInstance {
 /// # Errors
 /// - Returns [`ContentError::PackageNotInstallable`] when given a metapackage or dlc which have no installable content.
 /// - Currently only zip is supported and so returns [`ContentError::UnsupportedContentType`] if any other content type is provided.
-pub fn extract_content_to_deployment(config: &crate::CkanRsConfig, instance: &crate::game_instance::GameInstance, package: &crate::metadb::Package) -> Result<(), ContentError> {
+pub fn extract_content_to_deployment(config: &crate::CkanRsConfig, instance: &crate::game_instance::GameInstance, package: &crate::metadb::package::Package) -> Result<(), ContentError> {
 	let ct = package.download_content_type.as_ref().ok_or(ContentError::PackageNotInstallable)?;
 	if ct == "application/zip" {
 		let download_path = super::download::get_package_download_path(config, &package.identifier);

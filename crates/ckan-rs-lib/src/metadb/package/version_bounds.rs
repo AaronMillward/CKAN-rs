@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 
+/// A generic enum to describe a range of versions.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub enum VersionBounds<T>
 where T: std::cmp::PartialEq + std::cmp::Ord + std::clone::Clone,

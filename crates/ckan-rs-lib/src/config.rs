@@ -1,5 +1,8 @@
+//! Various settings used by many functions in this library.
+
 use std::io::{Read, Write};
 
+/// Config struct often passed into many functions.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CkanRsConfig {
 	download_dir: std::path::PathBuf,
@@ -51,7 +54,7 @@ impl CkanRsConfig {
 	pub fn download_dir(&self) -> &std::path::PathBuf {
 		&self.download_dir
 	}
-	/// returns if the directory is valid or not.
+	/// returns if the directory is valid and was set or not.
 	pub fn set_download_dir(&mut self, download_dir: std::path::PathBuf) -> bool {
 		if download_dir.is_dir() {
 			self.download_dir = download_dir;
@@ -64,7 +67,7 @@ impl CkanRsConfig {
 	pub fn data_dir(&self) -> &std::path::PathBuf {
 		&self.data_dir
 	}
-	/// returns if the directory is valid or not.
+	/// returns if the directory is valid and was set or not.
 	pub fn set_data_dir(&mut self, data_dir: std::path::PathBuf) -> bool {
 		if data_dir.is_dir() {
 			self.data_dir = data_dir;
@@ -96,8 +99,8 @@ impl CkanRsConfig {
 	/// On other platforms it is located at `$XDG_CONFIG_HOME/CKAN-rs/config.json`
 	/// 
 	/// # Errors
-	/// - [`crate::error::Error::IO`] when opening or reading from the file.
-	/// - [`crate::error::Error::SerdeJSON`] when deserializing the file.
+	/// - [`IO`](crate::error::Error::IO) when opening or reading from the file.
+	/// - [`SerdeJSON`](crate::error::Error::SerdeJSON) when deserializing the file.
 	pub fn load_from_disk() -> crate::Result<Self> {
 		let path = get_config_path();
 
@@ -115,8 +118,8 @@ impl CkanRsConfig {
 	/// On other platforms it is located at `$XDG_CONFIG_HOME/CKAN-rs/config.json`
 	/// 
 	/// # Errors
-	/// - [`crate::error::Error::IO`] when opening the file, writing to it or creating it's parent directories.
-	/// - [`crate::error::Error::SerdeJSON`] when serializing the file.
+	/// - [`IO`](crate::error::Error::IO) when opening the file, writing to it or creating it's parent directories.
+	/// - [`SerdeJSON`](crate::error::Error::SerdeJSON) when serializing the file.
 	pub fn save_to_disk(&self) -> crate::Result<()> {
 		let path = get_config_path();
 		std::fs::create_dir_all(path.with_file_name(""))?;

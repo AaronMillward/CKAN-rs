@@ -1,5 +1,5 @@
 use serde::*;
-use super::{*, mod_version::PackageVersion};
+use super::*;
 
 /// A unique identifier for packages.
 /// 
@@ -43,8 +43,6 @@ impl AsRef<PackageIdentifier> for PackageIdentifier {
 	}
 }
 
-pub type PackageVersionBounds = VersionBounds<PackageVersion>;
-
 /// Describes a package using an identifier and version requirement.
 /// 
 /// Differs from [`PackageIdentifier`] in that it represents a range of packages.
@@ -64,9 +62,12 @@ impl PackageDescriptor {
 	}
 }
 
+/// A requirement of a package that must be met for the package to be installed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Relationship {
+	/// At least one of the descriptors must match to fulfill the relationship.
 	AnyOf(Vec<PackageDescriptor>),
+	/// This single descriptor requirement must be met.
 	One(PackageDescriptor),
 }
 
@@ -101,5 +102,3 @@ pub fn does_package_provide_descriptor(package: &Package, descriptor: &PackageDe
 	}
 	descriptor.version.is_version_within(&package.identifier.version)
 }
-
-pub use super::import::relationship_from_json as from_json;

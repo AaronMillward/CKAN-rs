@@ -1,30 +1,31 @@
-//! # Deployment
+//! Install content to a game instance.
 //! 
-//! Here we link the files from the downloaded content into the game's directory.
+//! This module contains mostly impl blocks for other types such as [`GameInstance`](crate::game_instance::GameInstance)
 //! 
-//! Note that there is no utilities for operating on a single package at a time. 
-//! this is because the hard links used in deployment are so cheap to create 
+//! Note that there are no utilities for operating on a single package at a time.
+//! this is because the hard links used in deployment are so cheap to create
 //! it's simply easier to redeploy the packages every time a change is made.
-//! 
 
 use std::path::PathBuf;
 use std::path::Path;
 
-use crate::Package;
-use crate::metadb::package::InstallDirective;
-use crate::metadb::package::PackageIdentifier;
-use crate::metadb::package::SourceDirective;
-use crate::metadb::package::OptionalDirective;
+use crate::metadb::package::install::*;
+use crate::metadb::package::{Package, PackageIdentifier};
 
 impl crate::game_instance::GameInstance {
 	/// Cleans the instance of deployed files then link all required package files.
+	/// 
+	/// # Errors
+	/// - [`IO`](DeploymentError::IO) - When removing previously deployed files.
+	/// - [`MissingPackage`](DeploymentError::MissingPackage) - If a package is missing from the MetaDB after being enabled.
+	/// - [`MissingContent`](DeploymentError::MissingContent) - If a package's content has not been extracted before being deployed.
 	pub async fn redeploy_packages(&mut self, db: &crate::MetaDB) -> Result<(), DeploymentError> {
 		log::trace!("Redeploying packages for instance at {}", self.game_dir().display());
 		self.clean_deployment().await?;
 	
 		let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
 		
-		for package in self.get_enabled_packages() {
+		for package in self.enabled_packages() {
 			log::trace!("Deploying package {}", package);
 			let package = db.get_from_unique_id(package).ok_or(DeploymentError::MissingPackage)?;
 			let path = self.get_package_deployment_path(package);
@@ -55,10 +56,10 @@ impl crate::game_instance::GameInstance {
 	}
 	
 	/// Cleans the given instance of all package files.
-	/// # Arguments
+	/// # Parameters
 	/// - `instance` - The instance to clean.
 	/// # Errors
-	/// Potential IO Errors when removing files.
+	/// - [`IO`](DeploymentError::IO) - When removing files.
 	pub async fn clean_deployment(&mut self) -> Result<(), DeploymentError> {
 		log::trace!("Clearing deployed packages from instance at {}", self.game_dir().display());
 		for f in self.tracked.get_all_files() {
@@ -197,10 +198,15 @@ pub enum DeploymentError {
 	IO(#[from] std::io::Error),
 	#[error("error walking directory: {0}")]
 	WalkDir(#[from] walkdir::Error),
-	#[error("packages is not present in metadb.")]
+	/// An expected package is not present in the [`MetaDB`](crate::MetaDB).
+	#[error("package(s) not present in metadb.")]
 	MissingPackage,
+	/// Package's contents couldn't be found to deploy.
 	#[error("couldn't locate packages content for deployment.")]
 	MissingContent,
+	/// An [`InstallDirective`] has produced no instructions.
+	/// 
+	/// The directive wouldn't exist if it was intended to have no instructions so this is considered an error.
 	#[error("instructions list empty when processing directive.")]
 	NoInstructionsDirective
 }

@@ -86,13 +86,13 @@ impl install::InstallDirective {
 	}
 }
 
-impl mod_version::PackageVersion {
+impl package_version::PackageVersion {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::Parse;
 		v.as_str()
 			.ok_or_else(|| Parse("version must be a string".to_string()))
 			.and_then(|s|
-				PackageVersion::new(s).map_err(|_| Parse("version string can't be read as a version".to_string()))
+				Self::new(s).map_err(|_| Parse("version string can't be read as a version".to_string()))
 			)
 	}
 }
@@ -100,13 +100,13 @@ impl mod_version::PackageVersion {
 impl relationship::PackageDescriptor {
 	pub fn from_json(v: &serde_json::Value) -> crate::Result<Self> {
 		use crate::Error::Parse;
-		Ok(relationship::PackageDescriptor::new(
+		Ok(Self::new(
 			{
 				v.get("name")
 					.ok_or_else(|| Parse("JSON has no name field".to_string()))?
 					.as_str().ok_or_else(|| Parse("name must be a string".to_string()))?.to_string()
 			},
-			relationship::PackageVersionBounds::new(
+			PackageVersionBounds::new(
 				v.get("version").try_map(PackageVersion::from_json)?,
 				v.get("min_version").try_map(PackageVersion::from_json)?,
 				v.get("max_version").try_map(PackageVersion::from_json)?
@@ -115,33 +115,35 @@ impl relationship::PackageDescriptor {
 	}
 }
 
-pub fn relationship_from_json(v: &serde_json::Value) -> crate::Result<Vec<relationship::Relationship>> {
-	use crate::Error::Parse;
-	use relationship::*;
-
-	let mut relationships = Vec::<Relationship>::new();
-
-	let v = v.as_array().ok_or(Parse("must be array".to_string()))?;
-	for element in v {
-		let obj = element.as_object().ok_or(Parse("array elements must be objects".to_string()))?;
-		let relationship = 
-			if let Some(f) = obj.get("any_of") {
-				let arr = f.as_array().ok_or(Parse("any_of constraint must be an array".to_string()))?;
-				let mut ships = Vec::<PackageDescriptor>::new();
-				for o in arr {
-					if !o.is_object() { return Err(Parse("any_of array must contain only objects".to_string())); }
-					ships.push(PackageDescriptor::from_json(o)?);
-				}
-				Relationship::AnyOf(ships)
-			} else if obj.get("name").is_some() {
-				Relationship::One(PackageDescriptor::from_json(element)?)
-			} else {
-				return Err(Parse("relationship object must be a relationship or any_of constraint".to_string()));
-			};
-		relationships.push(relationship);
+impl relationship::Relationship {
+	pub fn from_json(v: &serde_json::Value) -> crate::Result<Vec<relationship::Relationship>> {
+		use crate::Error::Parse;
+		use relationship::*;
+	
+		let mut relationships = Vec::<Relationship>::new();
+	
+		let v = v.as_array().ok_or(Parse("must be array".to_string()))?;
+		for element in v {
+			let obj = element.as_object().ok_or(Parse("array elements must be objects".to_string()))?;
+			let relationship = 
+				if let Some(f) = obj.get("any_of") {
+					let arr = f.as_array().ok_or(Parse("any_of constraint must be an array".to_string()))?;
+					let mut ships = Vec::<PackageDescriptor>::new();
+					for o in arr {
+						if !o.is_object() { return Err(Parse("any_of array must contain only objects".to_string())); }
+						ships.push(PackageDescriptor::from_json(o)?);
+					}
+					Relationship::AnyOf(ships)
+				} else if obj.get("name").is_some() {
+					Relationship::One(PackageDescriptor::from_json(element)?)
+				} else {
+					return Err(Parse("relationship object must be a relationship or any_of constraint".to_string()));
+				};
+			relationships.push(relationship);
+		}
+	
+		Ok(relationships)
 	}
-
-	Ok(relationships)
 }
 
 impl Package {
@@ -285,11 +287,11 @@ impl Package {
 			download_content_type: get_val_optional(obj, "download_content_type")?,
 			install_size: get_val_optional(obj, "install_size")?,
 			release_date: get_val_optional(obj, "release_date")?,
-			depends: match obj.get("depends") { Some(v) => relationship::from_json(v)?, None => Default::default()},
-			recommends: match obj.get("recommends") { Some(v) => relationship::from_json(v)?, None => Default::default()},
-			suggests: match obj.get("suggests") { Some(v) => relationship::from_json(v)?, None => Default::default()},
-			supports: match obj.get("supports") { Some(v) => relationship::from_json(v)?, None => Default::default()},
-			conflicts: match obj.get("conflicts") { Some(v) => relationship::from_json(v)?, None => Default::default()},
+			depends: match obj.get("depends") { Some(v) => relationship::Relationship::from_json(v)?, None => Default::default()},
+			recommends: match obj.get("recommends") { Some(v) => relationship::Relationship::from_json(v)?, None => Default::default()},
+			suggests: match obj.get("suggests") { Some(v) => relationship::Relationship::from_json(v)?, None => Default::default()},
+			supports: match obj.get("supports") { Some(v) => relationship::Relationship::from_json(v)?, None => Default::default()},
+			conflicts: match obj.get("conflicts") { Some(v) => relationship::Relationship::from_json(v)?, None => Default::default()},
 			replaced_by: obj.get("replaced-by").try_map(relationship::PackageDescriptor::from_json)?,
 			kind: get_val(obj, "kind").unwrap_or_default(),
 			provides: {

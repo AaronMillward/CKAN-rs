@@ -6,6 +6,7 @@ use super::dependency_graph::EdgeData;
 use crate::metadb::*;
 use crate::metadb::package::*;
 
+/// Used to create a [`ResolverProcessor`] with the given options.
 pub struct ResolverBuilder<'db> {
 	dep_graph: Option<DependencyGraph>,
 	metadb: &'db MetaDB,
