@@ -263,6 +263,7 @@ dependencies = [
  "getopts",
  "log",
  "reqwest",
+ "thiserror",
  "tokio",
 ]
 

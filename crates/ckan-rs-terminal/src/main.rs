@@ -243,17 +243,24 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 		instance.enable_package(package);
 	}
 
-	instance.redeploy_packages(db).await.map_err(|_| Error::Deployment)
+	instance.redeploy_packages(db).await.map_err(|_| Error::Deployment)?;
+	instance.save_to_disk(config)?;
+
+	Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-	CKANrsError(ckan_rs::Error),
+	#[error("CKAN-rs error: {0}")]
+	CKANrsError(#[from] ckan_rs::Error),
+	#[error("Missing argument")]
 	MissingArgument,
+	#[error("Resolver")]
 	Resolver,
+	#[error("Download")]
 	Download,
+	#[error("Deployment failed")]
 	Deployment,
+	#[error("User cancelled an action")]
 	UserCancelled,
 }
-
-impl From<ckan_rs::Error> for Error { fn from(e: ckan_rs::Error) -> Self { Error::CKANrsError(e) } }
