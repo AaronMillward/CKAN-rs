@@ -1,3 +1,6 @@
+use petgraph::visit::IntoNodeReferences;
+use serde::{Serialize, Deserialize};
+
 use super::*;
 
 #[derive(Debug)]
@@ -39,50 +42,36 @@ pub enum ResolverStatus {
 	Failed(Vec<(String, DeterminePackageError)>),
 }
 
+#[derive(Debug, Clone)]
+pub struct Complete;
+#[derive(Debug, Clone)]
+pub struct InProgress;
+
 /// Performs the resolve task.
 /// 
 /// # Errors
 /// The resolver may fail for reasons described in [`DeterminePackageError`]
 /// when these occur they represent an error the resolver can't solve without human intervention.
-#[derive(Debug)]
-pub struct ResolverProcessor<'db> {
-	metadb: &'db MetaDB,
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageTree<State> {
 	/// Tells the resolver which package to chose when faced with a decision
 	decisions: HashSet<String>,
 
 	compatible_ksp_versions: Vec<KspVersionReal>,
 
 	dep_graph: DependencyGraph,
-	meta_node: NodeIndex,
 	compatible_candidates: Vec<NodeIndex>,
 
 	is_complete: bool,
+
+	state: std::marker::PhantomData<State>,
 }
 
-impl<'db> ResolverProcessor<'db> {
-	/// Creates a new `RelationshipResolver`.
-	/// 
-	/// # Parameters
-	/// - `metadb`: `MetaDB` containing the packages to resolve with.
-	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
-	/// - `compatible_ksp_versions`: Packages for these versions of the game can be installed.
-	pub(super) fn new(metadb: &'db MetaDB, dep_graph: DependencyGraph, meta_node: NodeIndex, compatible_ksp_versions: Vec<KspVersionReal>) -> Self {
-		ResolverProcessor {
-			metadb,
-			decisions: Default::default(),
-			compatible_ksp_versions,
-			dep_graph,
-			meta_node,
-			compatible_candidates: Default::default(),
-			is_complete: false,
-		}
-	}
-
+impl PackageTree<InProgress> {
 	/// Run the resolver process until complete or stopped by a decision or failure.
 	/// 
 	/// See [`relationship_resolver`](crate::relationship_resolver) documentation for more info on the resolve process.
-	pub fn attempt_resolve(&mut self) -> ResolverStatus {
+	pub fn attempt_resolve(&mut self, metadb: &crate::metadb::MetaDB) -> ResolverStatus {
 		/* Overview of process
 		We attempt to uncover as many edges as possible using a breadth first approach. we do this for the following reasons;
 		- We are mainly trying to avoid requiring user feedback.
@@ -94,7 +83,7 @@ impl<'db> ResolverProcessor<'db> {
 
 
 		fn add_node_requirements_to_queue(graph: &mut DependencyGraph, queue: &mut VecDeque::<NodeIndex>, src: NodeIndex) {
-			for e in graph.edges_directed(src, Outgoing) {
+			for e in graph.graph.edges_directed(src, Outgoing) {
 				match e.weight() {
 					EdgeData::Conflicts(_) => continue, /* Conflicts doesn't have to point to a required node */
 					EdgeData::AnyOf(_) | EdgeData::Option => continue, /* These don't represent an actual selection */
@@ -112,22 +101,22 @@ impl<'db> ResolverProcessor<'db> {
 			let mut pending_decision_nodes = Vec::<NodeIndex>::new();
 			let mut found_dirty = false;
 			
-			let mut visited = Vec::<NodeIndex>::with_capacity(self.dep_graph.node_count());
+			let mut visited = Vec::<NodeIndex>::with_capacity(self.dep_graph.graph.node_count());
 			let mut queue = VecDeque::<NodeIndex>::new();
 			
-			queue.push_front(self.meta_node);
+			queue.push_front(self.dep_graph.meta_node);
 			while let Some(i) = queue.pop_front() {
 				if visited.contains(&i) { continue; }
 				visited.push(i);
 				
-				let weight = self.dep_graph.node_weight(i).expect("invalid node index in the queue");
+				let weight = self.dep_graph.graph.node_weight(i).expect("invalid node index in the queue");
 				match weight {
 					/* Fixed nodes can't be changed so we don't care about their paths. We can assume that every requirement is already fulfilled */
 					NodeData::Fixed(_, _) => {},
 					NodeData::Candidate(_, data) => {
 						if data.dirty {
 							found_dirty = true;
-							if let Err(e) = self.determine_package_for_candidate(i) { failures.push((i,e)) }
+							if let Err(e) = self.determine_package_for_candidate(metadb, i) { failures.push((i,e)) }
 						} else {
 							self.compatible_candidates.push(i);
 						}
@@ -135,7 +124,7 @@ impl<'db> ResolverProcessor<'db> {
 					},
 					NodeData::Stub(_) => {
 						found_dirty = true;
-						if let Err(e) = self.determine_package_for_candidate(i) { failures.push((i,e)) }
+						if let Err(e) = self.determine_package_for_candidate(metadb, i) { failures.push((i,e)) }
 						add_node_requirements_to_queue(&mut self.dep_graph, &mut queue, i); /* A failed stub will have no edges making this work */
 					},
 					NodeData::Decision => {
@@ -146,7 +135,7 @@ impl<'db> ResolverProcessor<'db> {
 						*/
 						let mut has_selection = false;
 
-						for e in self.dep_graph.edges_directed(i, Outgoing) {
+						for e in self.dep_graph.graph.edges_directed(i, Outgoing) {
 							if let EdgeData::Selected = e.weight() {
 								queue.push_back(e.target());
 								has_selection = true;
@@ -173,7 +162,7 @@ impl<'db> ResolverProcessor<'db> {
 				self.is_complete = false;
 				return ResolverStatus::Failed(
 					failures.into_iter().map(|(i,e)| {
-						let s = get_node_identifier(&self.dep_graph, i).expect("failed to get identifier for node");
+						let s = self.dep_graph.get_node_identifier(i).expect("failed to get identifier for node");
 						(s.clone(),e)
 					}).collect()
 				);
@@ -194,15 +183,15 @@ impl<'db> ResolverProcessor<'db> {
 				for decision_node in pending_decision_nodes {
 					let mut selections = Vec::<(NodeIndex, NodeIndex)>::new();
 
-					for decision_option in self.dep_graph.edges_directed(decision_node, Outgoing) {
-						if let NodeData::Stub(name) | NodeData::Candidate(name, _) = &self.dep_graph[decision_option.target()] {
+					for decision_option in self.dep_graph.graph.edges_directed(decision_node, Outgoing) {
+						if let NodeData::Stub(name) | NodeData::Candidate(name, _) = &self.dep_graph.graph[decision_option.target()] {
 							if self.decisions.contains(name) {
 								selections.push((decision_node,decision_option.target()));
 								continue;
 							}
 						}
 
-						for existing_requirement in self.dep_graph.edges_directed(decision_option.target(), Incoming) {
+						for existing_requirement in self.dep_graph.graph.edges_directed(decision_option.target(), Incoming) {
 							match existing_requirement.weight() {
 								EdgeData::AnyOf(_) | EdgeData::Option | EdgeData::Conflicts(_) | EdgeData::Decision => continue,
 								| EdgeData::Depends(_)
@@ -219,7 +208,7 @@ impl<'db> ResolverProcessor<'db> {
 						explicit_required.push(decision_node);
 					} else {
 						for s in selections {
-							self.dep_graph.add_edge(s.0, s.1, EdgeData::Selected);
+							self.dep_graph.graph.add_edge(s.0, s.1, EdgeData::Selected);
 						}
 					}
 				}
@@ -230,7 +219,7 @@ impl<'db> ResolverProcessor<'db> {
 						explicit_required.into_iter().map(|i| {
 							/* XXX: Assumes i is a Decision node */
 	
-							let decision_parent_node = &self.dep_graph[self.dep_graph.edges_directed(i, petgraph::Incoming).next().expect("floating decision node").source()];
+							let decision_parent_node = &self.dep_graph.graph[self.dep_graph.graph.edges_directed(i, petgraph::Incoming).next().expect("floating decision node").source()];
 							let source = if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) = decision_parent_node {
 								name.clone()
 							} else {
@@ -239,8 +228,8 @@ impl<'db> ResolverProcessor<'db> {
 	
 							
 							let mut  options = Vec::<String>::new();
-							for e in self.dep_graph.edges_directed(i, Outgoing) {
-								let target = &self.dep_graph[e.target()];
+							for e in self.dep_graph.graph.edges_directed(i, Outgoing) {
+								let target = &self.dep_graph.graph[e.target()];
 	
 								if let NodeData::Stub(name) | NodeData::Candidate(name, _) | NodeData::Virtual(name) = target {
 									options.push(name.clone());
@@ -263,14 +252,14 @@ impl<'db> ResolverProcessor<'db> {
 	/// It makes no attempt to resolve conflicts arising from this choice.
 	/// # Panics
 	/// - If `src` is not a `Candidate` or `Stub`.
-	fn determine_package_for_candidate(&mut self, src: NodeIndex) -> Result<(), DeterminePackageError> {
-		if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &self.dep_graph[src] {
+	fn determine_package_for_candidate(&mut self, metadb: &crate::metadb::MetaDB, src: NodeIndex) -> Result<(), DeterminePackageError> {
+		if let NodeData::Candidate(name, _) | NodeData::Stub(name) = &self.dep_graph.graph[src] {
 			let name = name.clone();
 
-			let bounds = get_version_bounds_for_node(&self.dep_graph, src).ok_or(DeterminePackageError::VersionBoundsImcompatible)?;
+			let bounds = self.dep_graph.get_version_bounds_for_node(src).ok_or(DeterminePackageError::VersionBoundsImcompatible)?;
 
 			/* We don't use `bounds` yet, we want to grab every package providing the identifier so we can tell if it exists at all */
-			let matching_packages_providing = self.metadb.get_packages().iter().get_packages_providing(&PackageDescriptor { name: name.clone(), version: VersionBounds::Any });
+			let matching_packages_providing = metadb.get_packages().iter().get_packages_providing(&PackageDescriptor { name: name.clone(), version: VersionBounds::Any });
 			if matching_packages_providing.is_empty() {
 				Err(DeterminePackageError::IdentifierDoesNotExist)
 			} else if matching_packages_providing.len() == 1 {
@@ -290,18 +279,18 @@ impl<'db> ResolverProcessor<'db> {
 				m.sort();
 				let latest = m[0];
 
-				set_node_as_package(&mut self.dep_graph, src, latest);
+				self.dep_graph.set_node_as_package(src, latest);
 				
 				Ok(())
 			} else {
 				/* The package is virtual */
 				/* We represent the providers as a `Decision` node */
-				self.dep_graph[src] = NodeData::Virtual(name);
-				let decision = self.dep_graph.add_node(NodeData::Decision);
-				self.dep_graph.add_edge(src, decision, EdgeData::Decision);
+				self.dep_graph.graph[src] = NodeData::Virtual(name);
+				let decision = self.dep_graph.graph.add_node(NodeData::Decision);
+				self.dep_graph.graph.add_edge(src, decision, EdgeData::Decision);
 				for k in matching_packages_providing.keys() {
-					let provider = get_or_add_node_index(&mut self.dep_graph, k);
-					self.dep_graph.add_edge(decision, provider, EdgeData::Option);
+					let provider = self.dep_graph.get_or_add_node_index(k);
+					self.dep_graph.graph.add_edge(decision, provider, EdgeData::Option);
 				}
 				Ok(())
 			}
@@ -317,15 +306,87 @@ impl<'db> ResolverProcessor<'db> {
 		self.decisions.insert(identifier.to_owned());
 	}
 
-	/// Finalize to get data about the completed resolve.
-	/// 
-	/// # Errors
-	/// If the resolve is not complete.
-	pub fn finalize(self) -> Result<finalized_resolver::ResolverFinalized, Box<Self>> {
+	pub fn complete(self) -> Result<PackageTree<Complete>, Box<PackageTree<InProgress>>> {
 		if self.is_complete {
-			Ok(finalized_resolver::ResolverFinalized::new(self.dep_graph, self.compatible_candidates))
+			Ok(
+				PackageTree {
+					decisions: self.decisions,
+					compatible_ksp_versions: self.compatible_ksp_versions,
+					dep_graph: self.dep_graph,
+					compatible_candidates: self.compatible_candidates,
+					is_complete: self.is_complete,
+					state: std::marker::PhantomData,
+				}
+			)
 		} else {
 			Err(Box::new(self))
 		}
+	}
+}
+
+impl PackageTree<Complete> {
+	pub fn get_all_packages(&self) -> Vec<crate::metadb::package::PackageIdentifier> {
+		dbg!(&self.dep_graph.graph);
+		self.dep_graph.graph
+			.node_references()
+			.filter(|n| matches!(n.1, NodeData::Candidate(_,_)))
+			.map(|candidate| {
+				let data = candidate.1;
+				/* XXX: Assume candidate is a `Candidate` node */
+				if let NodeData::Candidate(_, data) = data {
+					data.id.clone()
+				} else {
+					/* Should never actually happen we just can't prove it to the compiler */
+					unimplemented!("bad node variant");
+				}
+			})
+			.collect()
+		/* TODO: Better install ordering */
+	}
+
+	pub fn alter_package_requirements(mut self, add: impl IntoIterator<Item = InstallTarget>, remove: impl IntoIterator<Item = InstallTarget>) -> PackageTree<InProgress> {
+		for target in add {
+			let new = self.dep_graph.get_or_add_node_index(&target.identifier);
+			self.dep_graph.graph.add_edge(self.dep_graph.meta_node, new, EdgeData::Depends(target.required_version.clone()));
+		}
+
+		for target in remove {
+			todo!();
+		}
+
+		PackageTree::<InProgress> {
+			decisions: self.decisions,
+			compatible_ksp_versions: self.compatible_ksp_versions,
+			dep_graph: self.dep_graph,
+			compatible_candidates: self.compatible_candidates,
+			is_complete: false,
+			state: Default::default(),
+		}
+	}
+}
+
+impl<State> PackageTree<State> {
+	/// Creates a new `RelationshipResolver`.
+	/// 
+	/// # Parameters
+	/// - `existing_graph`: if adding to a completed resolve, the completed graph can be passed here to shorten the resolve process.
+	/// - `compatible_ksp_versions`: Packages for these versions of the game can be installed.
+	pub fn new(compatible_ksp_versions: impl IntoIterator<Item = KspVersionReal>) -> PackageTree<Complete> {
+		PackageTree {
+			decisions: Default::default(),
+			compatible_ksp_versions: compatible_ksp_versions.into_iter().collect(),
+			dep_graph: Default::default(),
+			compatible_candidates: Default::default(),
+			is_complete: true,
+			state: std::marker::PhantomData,
+		}
+	}
+
+	pub fn clear_all_packages(&mut self) {
+		self.dep_graph.clear_all_packages();
+	}
+
+	pub fn clear_loose_packages(&mut self) {
+		self.dep_graph.clear_loose_nodes();
 	}
 }

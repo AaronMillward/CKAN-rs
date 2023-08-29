@@ -1,9 +1,12 @@
 //! Game installation handling.
 
-use std::{collections::HashSet, io::{Read, Write}, path::Path};
+use std::{io::{Read, Write}, path::Path, collections::HashSet};
 
 use crate::metadb::package;
 use crate::metadb::package::KspVersionReal;
+
+use crate::relationship_resolver::PackageTree;
+use crate::relationship_resolver::{Complete, InProgress};
 
 pub mod filetracker;
 
@@ -22,7 +25,7 @@ pub struct GameInstance {
 	name: String,
 	path: std::path::PathBuf,
 	compatible_ksp_versions: Vec<KspVersionReal>,
-	enabled_packages: HashSet<package::PackageIdentifier>,
+	package_tree: PackageTree<Complete>,
 	pub tracked: filetracker::TrackedFiles,
 	pub deployment_dir: std::path::PathBuf,
 }
@@ -85,6 +88,8 @@ impl GameInstance {
 				return Err(crate::Error::Parse(format!("builds.json missing build id {}, try updating metadb.", id)))
 			}
 		};
+
+		let package_tree = PackageTree::<Complete>::new(compatible_ksp_versions.clone());
 		
 		log::info!("Created new game instance at path {}", game_root_directory.display());
 		
@@ -93,7 +98,7 @@ impl GameInstance {
 			path: game_root_directory.to_path_buf(),
 			compatible_ksp_versions,
 			tracked: Default::default(),
-			enabled_packages: Default::default(),
+			package_tree,
 			deployment_dir
 		})
 	}
@@ -114,26 +119,55 @@ impl GameInstance {
 
 	/* Package Management */
 
-	pub fn enabled_packages(&self) -> &HashSet<package::PackageIdentifier> {
-		&self.enabled_packages
+	pub fn enabled_packages(&self) -> Vec<package::PackageIdentifier> {
+		self.package_tree.get_all_packages()
 	}
 
-	/// Enables a given package so that it is deployed the next time [`redeploy_packages()`](GameInstance::redeploy_packages()) is called.
-	pub fn enable_package(&mut self, package: impl AsRef<package::PackageIdentifier>) {
-		log::trace!("Enabling package {} on instance at {}", package.as_ref(), self.game_dir().display());
-		self.enabled_packages.insert(package.as_ref().clone());
-	}
+	pub fn alter_package_requirements<F>(
+		&mut self,
+		metadb: &crate::MetaDB,
+		add: impl IntoIterator<Item = crate::relationship_resolver::InstallTarget>,
+		remove: impl IntoIterator<Item = crate::relationship_resolver::InstallTarget>,
+		decision_handler: F) 
+		-> Result<(Vec<crate::metadb::package::PackageIdentifier>, Vec<crate::metadb::package::PackageIdentifier>), ()>
+	where F: Fn(&mut PackageTree<InProgress>, Vec<crate::relationship_resolver::DecisionInfo>),
+	{
+		use crate::relationship_resolver::ResolverStatus;
+		let mut pt = self.package_tree.clone().alter_package_requirements(add, remove);
+		loop {
+			match pt.attempt_resolve(metadb) {
+				ResolverStatus::Complete => {
+					log::info!("Clearing loose packages after complete resolve.");
+					// pt.clear_loose_packages();
+					let pt = pt.complete().expect("resolve` should be complete if sending `complete` status.");
 
-	/// Disables a given package so that it is not deployed the next time [`redeploy_packages()`](GameInstance::redeploy_packages()) is called.
-	pub fn disable_package(&mut self, package: impl AsRef<package::PackageIdentifier>) {
-		log::trace!("Disabling package {} on instance at {}", package.as_ref(), self.game_dir().display());
-		self.enabled_packages.remove(package.as_ref());
+					let new_package_list: HashSet<_> = pt.get_all_packages().into_iter().collect();
+					let prev_package_list: HashSet<_> = self.package_tree.get_all_packages().into_iter().collect();
+
+					let removed: Vec<_> = prev_package_list.difference(&new_package_list).cloned().collect();
+					let added: Vec<_> = new_package_list.difference(&prev_package_list).cloned().collect();
+
+					self.package_tree = pt;
+
+					return Ok((added,removed))
+				},
+				ResolverStatus::DecisionsRequired(infos) => {
+					decision_handler(&mut pt, infos)
+				},
+				ResolverStatus::Failed(fails) => {
+					for f in fails {
+						log::error!("Resolver failed on package {} with error: {}", f.0, f.1);
+					}
+					return Err(())
+				},
+			}
+		}
 	}
 
 	/// Disables all packages so they are not deployed the next time [`redeploy_packages()`](GameInstance::redeploy_packages()) is called.
 	pub fn clear_enabled_packages(&mut self) {
 		log::trace!("Clearing enabled packages on instance at {}", self.game_dir().display());
-		self.enabled_packages.clear();
+		self.package_tree.clear_all_packages();
 	}
 
 	/* Serialization */
@@ -154,23 +188,20 @@ impl GameInstance {
 	/// - [`IO`](crate::error::Error::IO) when opening or reading from the file.
 	/// - [`SerdeJSON`](crate::error::Error::SerdeJSON) when deserializing the file.
 	fn load_by_file(path: impl AsRef<Path>) -> crate::Result<Self> {
-		let mut file = std::fs::File::open(path)?;
-		let mut s: String = Default::default();
-		file.read_to_string(&mut s)?;
-		Ok(serde_json::from_str(&s)?)
+		let file = std::fs::File::open(path)?;
+		Ok(bincode::deserialize_from(file)?)
 	}
 
 	/// Saves the instance to a JSON file.
 	/// 
 	/// # Errors
 	/// - [`IO`](crate::error::Error::IO) when opening the file, writing to it or creating it's parent directories.
-	/// - [`SerdeJSON`](crate::error::Error::SerdeJSON) when serializing the file.
+	/// - [`Bincode`](crate::error::Error::Bincode) when serializing the file.
 	pub fn save_to_disk(&self, config: &crate::CkanRsConfig) -> crate::Result<()> {
 		let path = config.data_dir().join("instances").join(format!("{}.json", self.name));
 		std::fs::create_dir_all(path.with_file_name(""))?;
-		let json = serde_json::to_string_pretty(self)?;
-		let mut file = std::fs::File::create(path)?;
-		file.write_all(json.as_bytes())?;
+		let file = std::fs::File::create(path)?;
+		bincode::serialize_into(file, self)?;
 		Ok(())
 	}
 }

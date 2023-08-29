@@ -20,8 +20,8 @@ impl crate::game_instance::GameInstance {
 	/// - [`MissingPackage`](DeploymentError::MissingPackage) - If a package is missing from the MetaDB after being enabled.
 	/// - [`MissingContent`](DeploymentError::MissingContent) - If a package's content has not been extracted before being deployed.
 	pub async fn redeploy_packages(&mut self, db: &crate::MetaDB) -> Result<(), DeploymentError> {
-		log::trace!("Redeploying packages for instance at {}", self.game_dir().display());
 		self.clean_deployment().await?;
+		log::trace!("Redeploying packages for instance at {}", self.game_dir().display());
 	
 		let mut tracked_files = Vec::<(&PackageIdentifier, Vec<String>)>::new();
 		

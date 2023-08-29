@@ -18,18 +18,17 @@ use petgraph::prelude::*;
 mod dependency_graph;
 use dependency_graph::*;
 
-mod resolver_builder;
-pub use resolver_builder::ResolverBuilder;
-mod processing_resolver;
-pub use processing_resolver::ResolverProcessor;
-pub use processing_resolver::ResolverStatus;
-pub use processing_resolver::DeterminePackageError;
-mod finalized_resolver;
-pub use finalized_resolver::ResolverFinalized;
+mod package_tree;
+pub use package_tree::PackageTree;
+pub use package_tree::Complete;
+pub use package_tree::InProgress;
+pub use package_tree::ResolverStatus;
+pub use package_tree::DeterminePackageError;
+pub use package_tree::DecisionInfo;
 
 /// A requirement that can be given to the resolver to fulfill.
 #[derive(Debug, Default, Clone)]
-pub struct InstallRequirement {
+pub struct InstallTarget {
 	pub identifier: String,
 	pub required_version: PackageVersionBounds
 }

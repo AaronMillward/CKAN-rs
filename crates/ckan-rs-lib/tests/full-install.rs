@@ -21,10 +21,10 @@ async fn full_install() {
 	let compatible_ksp_versions = vec![KspVersionReal::new("1.12").expect("failed to create version from string."), KspVersionReal::new("1.11").expect("failed to create version from string.")];
 	
 	let requirements = vec![
-		InstallRequirement {identifier: "ModuleManager".to_string(), ..Default::default() },
+		InstallTarget {identifier: "ModuleManager".to_string(), ..Default::default() },
 		// InstallRequirement {identifier: "MechJeb2".to_string(), ..Default::default() }, /* 404s? my fault? */
-		InstallRequirement {identifier: "ProceduralParts".to_string(), ..Default::default() },
-		InstallRequirement {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
+		InstallTarget {identifier: "ProceduralParts".to_string(), ..Default::default() },
+		InstallTarget {identifier: "KSPInterstellarExtended".to_string(), ..Default::default() },
 	];
 
 

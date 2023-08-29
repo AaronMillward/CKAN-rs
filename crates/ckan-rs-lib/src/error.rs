@@ -12,6 +12,8 @@ pub enum Error {
 	IO(#[from] std::io::Error),
 	#[error("JSON error: {0}")]
 	SerdeJSON(#[from] serde_json::Error),
+	#[error("bincode error: {0}")]
+	Bincode(#[from] bincode::Error),
 	#[error("parsing error: {0}")]
 	Parse(String),
 	#[error("validation error: {0}")]

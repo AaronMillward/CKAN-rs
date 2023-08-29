@@ -157,59 +157,45 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 
 	use ckan_rs::relationship_resolver::*;
 
-	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallRequirement {identifier: s.as_ref().into(), required_version: ckan_rs::metadb::package::VersionBounds::Any}).collect();
+	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallTarget {identifier: s.as_ref().into(), required_version: ckan_rs::metadb::package::VersionBounds::Any}).collect();
 	
-	let mut resolver = ResolverBuilder::new(db)
-		.compatible_ksp_versions(instance.compatible_ksp_versions().clone())
-		.add_package_requirements(requirements)
-		.build();
+	let (added, removed) = instance.alter_package_requirements(db, requirements, vec![], |tree, infos| {
+		for info in infos {
+			let mut options = info.options.clone();
+			options.sort();
+			println!("Multiple providers of [{}]. select one.", info.source);
+			for (i,opt) in options.iter().enumerate() {
+				print!("{}) {} ", i, opt);
+			}
 
-	let packages = loop {
-		match resolver.attempt_resolve() {
-			ResolverStatus::Complete => {
-				break resolver.finalize().expect("resolve should be complete if sending `complete` status.").get_new_packages();
-			},
-			ResolverStatus::DecisionsRequired(infos) => {
-				for info in infos {
-					let mut options = info.options.clone();
-					options.sort();
-					println!("Multiple providers of [{}]. select one.", info.source);
-					for (i,opt) in options.iter().enumerate() {
-						print!("{}) {} ", i, opt);
-					}
-
-					let stdin = std::io::stdin();
-					loop {
-						let mut input = String::new();
-						if stdin.read_line(&mut input).is_ok() {
-							if let Ok(ans) = input.parse::<usize>() {
-								if ans < options.len() {
-									resolver.add_decision(&info.options[ans]);
-									break;
-								}
-							}
+			let stdin = std::io::stdin();
+			loop {
+				let mut input = String::new();
+				if stdin.read_line(&mut input).is_ok() {
+					if let Ok(ans) = input.parse::<usize>() {
+						if ans < options.len() {
+							tree.add_decision(&info.options[ans]);
+							break;
 						}
-						println!("Input invalid.")
 					}
 				}
-			},
-			ResolverStatus::Failed(fails) => {
-				for f in fails {
-					log::error!("Resolver failed on package {} with error: {}", f.0, f.1);
-				}
-				return Err(Error::Resolver)
-			},
+				println!("Input invalid.")
+			}
 		}
-	};
+	}).map_err(|_| Error::Resolver)?;
 
-	log::info!("Resolver finalized. new packages:");
-	for package in &packages {
-		log::info!("\tID: {} VERSION: {:?}", package.identifier, package.version);
+	println!("Resolver complete.");
+	println!("Removing packages:");
+	for package in &removed {
+		println!("\tID: {} VERSION: {:?}", package.identifier, package.version);
+	}
+	println!("Adding packages:");
+	for package in &added {
+		println!("\tID: {} VERSION: {:?}", package.identifier, package.version);
 	}
 
-
 	let stdin = std::io::stdin();
-	print!("Enable new packages? [(y)/n] ");
+	print!("Commit changes? [(y)/n] ");
 	let _ = std::io::stdout().flush();
 	loop {
 		let mut input = String::new();
@@ -224,7 +210,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 		}
 	}
 	
-	let packages = packages.iter()
+	let packages = added.iter()
 		.map(|m| db.get_from_unique_id(m).expect("metadb package not found"))
 		.collect::<Vec<_>>();
 
@@ -240,7 +226,6 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 
 	for package in packages {
 		ckan_rs::installation::content::extract_content_to_deployment(config, &instance, package).unwrap();
-		instance.enable_package(package);
 	}
 
 	instance.redeploy_packages(db).await.map_err(|_| Error::Deployment)?;
