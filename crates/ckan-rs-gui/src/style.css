@@ -1,0 +1,18 @@
+body {
+	background-color: black;
+	color: white;
+}
+
+.ModList {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.ModCard {
+	background-color: lightgray;
+	color: black;
+	display: flex;
+	border-radius: 10px;
+	min-height: 3em;
+}

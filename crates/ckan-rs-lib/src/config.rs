@@ -3,7 +3,7 @@
 use std::io::{Read, Write};
 
 /// Config struct often passed into many functions.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct CkanRsConfig {
 	download_dir: std::path::PathBuf,
 	data_dir: std::path::PathBuf,
