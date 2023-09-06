@@ -1,6 +1,46 @@
+:root {
+	--background: black;
+	--element-background: rgb(42, 42, 42);
+	--text: white;
+}
+
 body {
-	background-color: black;
-	color: white;
+	background-color: var(--background);
+	color: var(--text);
+	text-align: center;
+}
+
+.MainTitle {
+	margin: auto, 0;
+	background-color: var(--element-background);
+	border-radius: 5px;
+}
+
+.InstanceSelector {
+	max-width: 80%;
+	margin: auto;
+}
+
+.InstanceButtons {
+	display: flex;
+}
+
+.InstanceButtons > * {
+	width: 100%;
+}
+
+.InstanceList {
+	margin: auto;
+	border-style: solid;
+	border-width: 2px;
+	border-color: var(--element-background);
+	border-radius: 5px;
+}
+
+.InstanceListItem {
+	border-radius: 3px;
+	min-height: 3em;
+	border-style: solid;
 }
 
 .ModList {
@@ -10,8 +50,7 @@ body {
 }
 
 .ModCard {
-	background-color: lightgray;
-	color: black;
+	background-color: var(--element-background);
 	display: flex;
 	border-radius: 10px;
 	min-height: 3em;

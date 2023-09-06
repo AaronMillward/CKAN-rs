@@ -187,7 +187,7 @@ impl GameInstance {
 	/// # Errors
 	/// - [`IO`](crate::error::Error::IO) when opening or reading from the file.
 	/// - [`SerdeJSON`](crate::error::Error::SerdeJSON) when deserializing the file.
-	fn load_by_file(path: impl AsRef<Path>) -> crate::Result<Self> {
+	pub fn load_by_file(path: impl AsRef<Path>) -> crate::Result<Self> {
 		let file = std::fs::File::open(path)?;
 		Ok(bincode::deserialize_from(file)?)
 	}

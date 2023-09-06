@@ -1,12 +1,54 @@
 #![allow(non_snake_case)]
 use dioxus::prelude::*;
 
-#[inline_props]
-pub fn InstanceSelector<'a>(cx: Scope, on_click: EventHandler<'a, MouseEvent>,) -> Element<'a> {
+use ckan_rs::game_instance::GameInstance;
+
+pub struct SelectedInstanceEvent {
+	pub instance: usize,
+}
+
+#[derive(Props)]
+pub struct InstanceSelectorProps<'a> {
+	instances: &'a Vec<GameInstance>,
+	on_instance_selected: Option<EventHandler<'a, SelectedInstanceEvent>>
+}
+
+pub fn InstanceSelector<'a>(cx: Scope<'a, InstanceSelectorProps<'a>>) -> Element<'a> {
+	let components = cx.props.instances.iter().enumerate().map(|(i, ins)| {
+		let gd = ins.game_dir().to_string_lossy();
+		rsx!(
+			div {
+				class: "InstanceListItem",
+				onclick: move |_| {
+					if let Some(on_instance_selected) = &cx.props.on_instance_selected {
+						on_instance_selected.call(SelectedInstanceEvent { instance: i })
+					}
+				},
+				"{gd}",
+			}
+		)
+	});
+
 	cx.render(rsx!(
+		h1 {
+			class: "MainTitle",
+			"InstanceSelector",
+		}
 		div {
-			onclick: move |evt| cx.props.on_click.call(evt),
-			"InstanceSelector"
+			class: "InstanceSelector",
+			div {
+				class: "InstanceList",
+				components
+			}
+			div {
+				class: "InstanceButtons",
+				button {
+					"Create Instance"
+				}
+				button {
+					"Select Instance"
+				}
+			}
 		}
 	))
 }

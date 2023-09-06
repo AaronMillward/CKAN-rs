@@ -4,9 +4,9 @@ use std::rc::Rc;
 use dioxus::prelude::*;
 
 mod mod_card;
+mod mod_list;
 
 mod instance_selector;
-mod mod_list;
 
 enum MainMode {
 	InstanceSelector,
@@ -81,15 +81,30 @@ pub fn App(cx: Scope, ckan_config: Rc<ckan_rs::CkanRsConfig>) -> Element {
 	let db = use_future(cx, (), |_| {  get_metadb_from_disk_or_generate(ckan_config.clone()) });
 	// Loads forever
 	// let db = use_future(cx, (), |_| { std::future::pending::<ckan_rs::Result<ckan_rs::MetaDB>>() });
-	
 
+	let instances = use_state(cx, || {
+		let dir = match std::fs::read_dir(ckan_config.data_dir().join("instances")) {
+			Ok(dir) => dir,
+			Err(_) => return Vec::<_>::new(),
+		}; 
+		dir
+			.filter_map(|f| f.ok())
+			.map(|f| ckan_rs::game_instance::GameInstance::load_by_file(f.path()))
+			.filter_map(|f| f.ok())
+			.collect::<Vec<_>>()
+	});
+	
 	let main_mode = use_state(cx, || MainMode::InstanceSelector);
 	match main_mode.get() {
 		MainMode::InstanceSelector => {
 			render!(
 				style { include_str!("./style.css") }
 				instance_selector::InstanceSelector {
-					on_click: |_| {main_mode.set(MainMode::ModList)}
+					instances: instances,
+					on_instance_selected: |e: instance_selector::SelectedInstanceEvent| {
+						println!("instance selected {}", e.instance);
+						main_mode.set(MainMode::ModList);
+					}
 				}
 			)
 		}
