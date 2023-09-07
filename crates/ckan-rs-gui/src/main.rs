@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 
 mod mod_card;
 mod mod_list;
+mod mod_details;
 
 mod instance_selector;
 
@@ -93,7 +94,7 @@ pub fn App(cx: Scope, ckan_config: Rc<ckan_rs::CkanRsConfig>) -> Element {
 			.filter_map(|f| f.ok())
 			.collect::<Vec<_>>()
 	});
-	
+
 	let main_mode = use_state(cx, || MainMode::InstanceSelector);
 	match main_mode.get() {
 		MainMode::InstanceSelector => {

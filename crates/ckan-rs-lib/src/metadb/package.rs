@@ -9,7 +9,7 @@ use serde::*;
 /// 
 /// We use the term "Package" instead of "Module" due to the overlap with rust's keywords.
 /* NOTE: We don't use serde's deserialize to import the .ckan files because it's way to involved and limited. use `read_from_json` associated function instead. */
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Package {
 	/* Required Fields */
 	pub spec_version: String,
@@ -120,7 +120,7 @@ pub use relationship::does_package_provide_descriptor;
 pub use relationship::does_package_match_descriptor;
 
 /// The stability of a package.
-#[derive(Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ReleaseStatus {
 	#[default] Stable,
 	Testing,
@@ -129,7 +129,7 @@ pub enum ReleaseStatus {
 
 /* TODO: Move Kind-dependent info (such as download url) into this enum's variants */
 /// The type of a package.
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Kind {
 	/// A normal installable module.
 	#[default] Package,
