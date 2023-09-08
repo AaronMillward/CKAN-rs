@@ -5,21 +5,25 @@ use ckan_rs::metadb::package::KspVersionReal;
 
 use super::mod_card::*;
 
-#[inline_props]
-pub fn ModList<'a>(cx: Scope, db: &'a UseFuture<Result<ckan_rs::MetaDB, ckan_rs::Error>>) -> Element<'a> {
-	match db.value() {
+#[derive(Props)]
+pub struct ModListProps<'a> {
+	db: &'a UseFuture<Result<ckan_rs::MetaDB, ckan_rs::Error>>,
+}
+
+pub fn ModList<'a>(cx: Scope<'a, ModListProps>) -> Element<'a> {
+	match cx.props.db.value() {
 		Some(Ok(db)) => {
-			let packages: Vec<_> = db.get_packages().iter()
-				.filter(|p| p.ksp_version.is_version_compatible(&KspVersionReal::try_from("1.12.3").unwrap(), false))
-				.collect();
+			let packages = db.get_packages().iter()
+				.filter(|p| p.ksp_version.is_version_compatible(&KspVersionReal::try_from("1.12.3").unwrap(), false));
 
 			let window = dioxus_desktop::use_window(cx);
 
-			let cards_rendered = packages.iter().map(|package| {
+			let cards_rendered = packages.map(|package| {
 				rsx!(
 					ModCard {
 						package: package,
 						on_selected: move |evt: ModCardSelectedEvent| {
+							/* NOTE: Although I hate using clone here it's much cleaner than changing the whole library to allow shared ownership of packages. */
 							let dom = VirtualDom::new_with_props(super::mod_details::ModDetails, super::mod_details::ModDetailsProps { package: evt.package.clone() });
 							window.new_window(dom, Default::default());
 						},

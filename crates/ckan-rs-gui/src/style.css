@@ -52,6 +52,8 @@ body {
 .ModCard {
 	background-color: var(--element-background);
 	display: flex;
+	gap: 3px;
 	border-radius: 10px;
 	min-height: 3em;
+	text-align: start;
 }

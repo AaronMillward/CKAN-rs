@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 use dioxus::prelude::*;
 
+mod instance_creator;
+
 use ckan_rs::game_instance::GameInstance;
 
 pub struct SelectedInstanceEvent {
@@ -14,6 +16,8 @@ pub struct InstanceSelectorProps<'a> {
 }
 
 pub fn InstanceSelector<'a>(cx: Scope<'a, InstanceSelectorProps<'a>>) -> Element<'a> {
+	let window = dioxus_desktop::use_window(cx);
+
 	let components = cx.props.instances.iter().enumerate().map(|(i, ins)| {
 		let gd = ins.game_dir().to_string_lossy();
 		rsx!(
@@ -43,6 +47,10 @@ pub fn InstanceSelector<'a>(cx: Scope<'a, InstanceSelectorProps<'a>>) -> Element
 			div {
 				class: "InstanceButtons",
 				button {
+					onclick: move |_| {
+						let dom = VirtualDom::new(instance_creator::InstanceCreator);
+						window.new_window(dom, Default::default());
+					},
 					"Create Instance"
 				}
 				button {
