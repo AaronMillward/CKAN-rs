@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ckan-rs = { path = "../ckan-rs-lib" }
+ckan-rs-core = { path = "../ckan-rs-core" }
 
 fs_extra = "1.3.0"
 tempfile = "3.4.0"

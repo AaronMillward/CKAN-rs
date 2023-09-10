@@ -32,7 +32,7 @@ impl crate::game_instance::GameInstance {
 /// # Errors
 /// - Returns [`ContentError::PackageNotInstallable`] when given a metapackage or dlc which have no installable content.
 /// - Currently only zip is supported and so returns [`ContentError::UnsupportedContentType`] if any other content type is provided.
-pub fn extract_content_to_deployment(config: &crate::CkanRsConfig, instance: &crate::game_instance::GameInstance, package: &crate::metadb::package::Package) -> Result<(), ContentError> {
+pub fn extract_content_to_deployment(config: &crate::Config, instance: &crate::game_instance::GameInstance, package: &crate::metadb::package::Package) -> Result<(), ContentError> {
 	let ct = package.download_content_type.as_ref().ok_or(ContentError::PackageNotInstallable)?;
 	if ct == "application/zip" {
 		let download_path = super::download::get_package_download_path(config, &package.identifier);

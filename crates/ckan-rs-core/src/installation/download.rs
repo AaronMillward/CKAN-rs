@@ -18,7 +18,7 @@ pub enum DownloadError {
 	IO(#[from] std::io::Error),
 }
 
-pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metadb::package::PackageIdentifier) -> std::path::PathBuf {
+pub fn get_package_download_path(config: &crate::Config, id: &crate::metadb::package::PackageIdentifier) -> std::path::PathBuf {
 	config.download_dir().join(id.identifier.clone() + &id.version.to_string() + ".zip")
 }
 
@@ -31,10 +31,10 @@ pub fn get_package_download_path(config: &crate::CkanRsConfig, id: &crate::metad
 /// 
 /// # Returns
 /// A vector of tuples containing a package to be downloaded and a result of the download.
-pub async fn download_packages_content<'info>(config: &crate::CkanRsConfig, packages: &[&'info Package], force: bool) 
+pub async fn download_packages_content<'info>(config: &crate::Config, packages: &[&'info Package], force: bool) 
 -> Vec<(&'info Package, Result<std::path::PathBuf, DownloadError>)> {
 
-	async fn download_package(config: &crate::CkanRsConfig, client: &reqwest::Client, package: &Package, force: bool)
+	async fn download_package(config: &crate::Config, client: &reqwest::Client, package: &Package, force: bool)
 	-> Result<std::path::PathBuf, DownloadError> {
 		let download_path = get_package_download_path(config, &package.identifier);
 		if download_path.exists() && !force {

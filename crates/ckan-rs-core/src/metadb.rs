@@ -56,7 +56,7 @@ impl MetaDB {
 	/// # Errors
 	/// - [`IO`](`crate::error::Error::IO`) when opening or reading from the file.
 	/// - [`Parse`](`crate::error::Error::Parse`) when deserializing the file, this is likely due to the DB format changing and so needs regenerating.
-	pub fn load_from_disk(config: &crate::CkanRsConfig) -> crate::Result<MetaDB> {
+	pub fn load_from_disk(config: &crate::Config) -> crate::Result<MetaDB> {
 		let path = config.data_dir().join("metadb.bin");
 		let mut f = std::fs::File::open(path)?;
 		let mut v = Vec::<u8>::new();
@@ -69,7 +69,7 @@ impl MetaDB {
 	/// # Errors
 	/// - [`IO`](`crate::error::Error::IO`) when creating or writing to the file.
 	/// - [`Parse`](`crate::error::Error::Parse`) when serializing the file.
-	pub fn save_to_disk(&self, config: &crate::CkanRsConfig) -> crate::Result<()> {
+	pub fn save_to_disk(&self, config: &crate::Config) -> crate::Result<()> {
 		let path = config.data_dir().join("metadb.bin");
 		let data = bincode::serialize(self).map_err(|_| crate::error::Error::Parse("Serialize failed".to_string()))?;
 		let mut f = std::fs::File::create(path)?;

@@ -4,14 +4,14 @@ use std::io::{Read, Write};
 
 /// Config struct often passed into many functions.
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
-pub struct CkanRsConfig {
+pub struct Config {
 	download_dir: std::path::PathBuf,
 	data_dir: std::path::PathBuf,
 	https_only: bool,
 	do_checksums: bool,
 }
 
-impl Default for CkanRsConfig {
+impl Default for Config {
 	fn default() -> Self {
 		Self {
 			download_dir: {
@@ -50,7 +50,7 @@ impl Default for CkanRsConfig {
 	}
 }
 
-impl CkanRsConfig {
+impl Config {
 	pub fn download_dir(&self) -> &std::path::PathBuf {
 		&self.download_dir
 	}

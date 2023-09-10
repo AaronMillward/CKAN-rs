@@ -1,2 +1,7 @@
 [workspace]
-members = ["crates/*"]
+members = [
+	"crates/ckan-rs/src-tauri",
+	"crates/ckan-rs-terminal",
+	"crates/ckan-rs-core",
+	"crates/ckan-rs-test-utils",
+]

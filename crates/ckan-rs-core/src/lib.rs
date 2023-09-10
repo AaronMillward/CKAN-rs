@@ -20,7 +20,7 @@ pub mod metadb;
 pub use metadb::MetaDB;
 
 pub mod config;
-pub use config::CkanRsConfig;
+pub use config::Config;
 
 pub mod installation;
 pub mod relationship_resolver;

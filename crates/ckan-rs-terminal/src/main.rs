@@ -28,23 +28,23 @@ async fn main() {
 		parsed_options
 	};
 
-	let config = ckan_rs::CkanRsConfig::load_from_disk().unwrap_or_else(|e| {
+	let config = ckan_rs_core::Config::load_from_disk().unwrap_or_else(|e| {
 		log::warn!("Failed to read config file: {}", e);
 		log::warn!("Using default config.");
-		ckan_rs::CkanRsConfig::default()
+		ckan_rs_core::Config::default()
 	});
 
-	async fn genreate_and_save_new_metadb(config: &ckan_rs::CkanRsConfig) -> ckan_rs::Result<ckan_rs::MetaDB> {
-		let db = ckan_rs::metadb::generate_latest().await?;
+	async fn genreate_and_save_new_metadb(config: &ckan_rs_core::Config) -> ckan_rs_core::Result<ckan_rs_core::MetaDB> {
+		let db = ckan_rs_core::metadb::generate_latest().await?;
 		db.save_to_disk(config)?;
 		Ok(db)
 	}
 
-	let db = match ckan_rs::MetaDB::load_from_disk(&config) {
+	let db = match ckan_rs_core::MetaDB::load_from_disk(&config) {
 		Ok(db) => db,
 		Err(e) => {
 			match e {
-				ckan_rs::Error::IO(e) => {
+				ckan_rs_core::Error::IO(e) => {
 					match e.kind() {
 						std::io::ErrorKind::NotFound => {
 							let res = genreate_and_save_new_metadb(&config).await;
@@ -62,7 +62,7 @@ async fn main() {
 						}
 					}
 				},
-				ckan_rs::Error::Parse(_) => {
+				ckan_rs_core::Error::Parse(_) => {
 					log::warn!("Failed to open MetaDB due to parsing error, DB format likely changed. regenerating...");
 					let res = genreate_and_save_new_metadb(&config).await;
 					match res {
@@ -115,7 +115,7 @@ async fn main() {
 	}
 }
 
-fn create_instance(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, instance_path: impl AsRef<std::path::Path>, name: impl AsRef<str>) -> Result<(), Error> {
+fn create_instance(config: &ckan_rs_core::Config, db: &ckan_rs_core::MetaDB, instance_path: impl AsRef<std::path::Path>, name: impl AsRef<str>) -> Result<(), Error> {
 	log::trace!("Attempting to create new instance");
 
 	let instance_path = instance_path.as_ref();
@@ -126,18 +126,18 @@ fn create_instance(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, instanc
 		base.join(instance_dir_name.to_str().expect("instance directory name should be valid unicode.").to_owned() + "-deployment")
 	};
 
-	let instance = match ckan_rs::game_instance::GameInstance::new(config, db.get_game_builds(), name.as_ref().to_string(), instance_path, deployment_dir) {
+	let instance = match ckan_rs_core::game_instance::GameInstance::new(config, db.get_game_builds(), name.as_ref().to_string(), instance_path, deployment_dir) {
 		Ok(ins) => ins,
 		Err(e) => match e {
-			ckan_rs::Error::IO(ref inner) => {
+			ckan_rs_core::Error::IO(ref inner) => {
 				log::error!("Game instance is missing required files. possibly not a valid instance? IO Error: {}", inner);
 				return Err(Error::CKANrsError(e));
 			},
-			ckan_rs::Error::Parse(ref inner) => {
+			ckan_rs_core::Error::Parse(ref inner) => {
 				log::error!("Failed to get build id for instance. IO Error: {}", inner);
 				return Err(Error::CKANrsError(e));
 			},
-			ckan_rs::Error::AlreadyExists => {
+			ckan_rs_core::Error::AlreadyExists => {
 				log::error!("An instance with this name or game root already exists. Error: {}", e);
 				return Err(Error::CKANrsError(e));
 			}
@@ -152,12 +152,12 @@ fn create_instance(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, instanc
 	Ok(())
 }
 
-async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, instance_name: impl AsRef<str>, package_names: impl IntoIterator<Item = impl AsRef<str>>) -> Result<(), Error> {
-	let mut instance = ckan_rs::game_instance::GameInstance::load_by_name(config, instance_name)?;
+async fn install_packages(config: &ckan_rs_core::Config, db: &ckan_rs_core::MetaDB, instance_name: impl AsRef<str>, package_names: impl IntoIterator<Item = impl AsRef<str>>) -> Result<(), Error> {
+	let mut instance = ckan_rs_core::game_instance::GameInstance::load_by_name(config, instance_name)?;
 
-	use ckan_rs::relationship_resolver::*;
+	use ckan_rs_core::relationship_resolver::*;
 
-	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallTarget {identifier: s.as_ref().into(), required_version: ckan_rs::metadb::package::VersionBounds::Any}).collect();
+	let requirements: Vec<_> = package_names.into_iter().map(|s| InstallTarget {identifier: s.as_ref().into(), required_version: ckan_rs_core::metadb::package::VersionBounds::Any}).collect();
 	
 	let (added, removed) = instance.alter_package_requirements(db, requirements, vec![], |tree, infos| {
 		for info in infos {
@@ -215,7 +215,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 		.collect::<Vec<_>>();
 
 	{
-		let download_results = ckan_rs::installation::download::download_packages_content(config, packages.as_slice(), false).await;
+		let download_results = ckan_rs_core::installation::download::download_packages_content(config, packages.as_slice(), false).await;
 		for result in &download_results {
 			if result.1.is_err() { log::error!("failed to download package {} {:?}", result.0.identifier.identifier, result.1)}
 		}
@@ -225,7 +225,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 	}
 
 	for package in packages {
-		ckan_rs::installation::content::extract_content_to_deployment(config, &instance, package).unwrap();
+		ckan_rs_core::installation::content::extract_content_to_deployment(config, &instance, package).unwrap();
 	}
 
 	instance.redeploy_packages(db).await.map_err(|_| Error::Deployment)?;
@@ -237,7 +237,7 @@ async fn install_packages(config: &ckan_rs::CkanRsConfig, db: &ckan_rs::MetaDB, 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
 	#[error("CKAN-rs error: {0}")]
-	CKANrsError(#[from] ckan_rs::Error),
+	CKANrsError(#[from] ckan_rs_core::Error),
 	#[error("Missing argument")]
 	MissingArgument,
 	#[error("Resolver")]

@@ -42,7 +42,7 @@ impl GameInstance {
 	/// # Errors
 	/// - [`IO`](crate::error::Error::IO) when the directory is invalid.
 	/// - [`Parse`](crate::error::Error::Parse) when extracting the build id from `buildID.txt`.
-	pub fn new(config: &crate::CkanRsConfig, builds: &crate::metadb::BuildIDList, name: String, game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> crate::Result<GameInstance> {
+	pub fn new(config: &crate::Config, builds: &crate::metadb::BuildIDList, name: String, game_root_directory: impl AsRef<std::path::Path>, deployment_dir: std::path::PathBuf) -> crate::Result<GameInstance> {
 		let instances_dir = config.data_dir().join("instances");
 		if !instances_dir.exists() {
 			std::fs::create_dir_all(&instances_dir)?;
@@ -177,7 +177,7 @@ impl GameInstance {
 	/// # Errors
 	/// - [`IO`](crate::error::Error::IO) when opening or reading from the file.
 	/// - [`SerdeJSON`](crate::error::Error::SerdeJSON) when deserializing the file.
-	pub fn load_by_name(config: &crate::CkanRsConfig, name: impl AsRef<str>) -> crate::Result<Self> {
+	pub fn load_by_name(config: &crate::Config, name: impl AsRef<str>) -> crate::Result<Self> {
 		let path = config.data_dir().join("instances").join(format!("{}.json", name.as_ref()));
 		Self::load_by_file(path)
 	}
@@ -197,7 +197,7 @@ impl GameInstance {
 	/// # Errors
 	/// - [`IO`](crate::error::Error::IO) when opening the file, writing to it or creating it's parent directories.
 	/// - [`Bincode`](crate::error::Error::Bincode) when serializing the file.
-	pub fn save_to_disk(&self, config: &crate::CkanRsConfig) -> crate::Result<()> {
+	pub fn save_to_disk(&self, config: &crate::Config) -> crate::Result<()> {
 		let path = config.data_dir().join("instances").join(format!("{}.json", self.name));
 		std::fs::create_dir_all(path.with_file_name(""))?;
 		let file = std::fs::File::create(path)?;
