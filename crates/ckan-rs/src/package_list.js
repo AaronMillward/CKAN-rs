@@ -3,11 +3,10 @@ const { invoke } = window.__TAURI__.tauri;
 window.addEventListener("DOMContentLoaded", async () => {
 	let modlist = document.getElementById("modlist");
 	let packages = await invoke("get_compatiable_packages");
-	console.log(packages[0])
-	// console.log(packages)
+
 	for(let m in packages) {
 		let d = document.createElement("div");
-		d.className = "mod-card"
+		d.className = "mod-card card"
 		d.onclick = () => {
 			invoke("open_mod_detail_window", { package: packages[m] } );
 		}

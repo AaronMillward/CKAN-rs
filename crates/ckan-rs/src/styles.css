@@ -1,7 +1,15 @@
-.mod-card {
+:root {
+	--card-background-color: rgb(36, 36, 36);
+}
+
+body {
 	background-color: black;
-	border-radius: 3px;
-	color: white;
+	color: whitesmoke;
+}
+
+.card {
+	background-color: var(--card-background-color);
+	border-radius: 10px;
 }
 
 .mod-card > h2 {
@@ -11,4 +19,14 @@
 .mod-card-version-number {
 	float: right;
 	text-align: right;
+}
+
+.instance-selector {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.instance-card > h3 {
+	margin: 0;
 }

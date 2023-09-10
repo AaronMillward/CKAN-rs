@@ -5,7 +5,6 @@ use ckan_rs_core::MetaDB;
 #[tauri::command]
 pub fn get_compatiable_packages(metadb: State<MetaDB>) -> Vec<Package> {
 	use ckan_rs_core::metadb::package::KspVersionReal;
-	println!("returning compat");
 	metadb.get_packages()
 		.iter()
 		.filter(|p| p.ksp_version.is_version_compatible(&KspVersionReal::try_from("1.12.3").unwrap(), false))

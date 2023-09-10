@@ -105,6 +105,14 @@ impl GameInstance {
 
 	/* Fields */
 
+	pub fn name(&self) -> &str {
+		&self.name
+	}
+
+	pub fn path(&self) -> &std::path::Path {
+		&self.path
+	}
+
 	pub fn game_dir(&self) -> &std::path::Path {
 		&self.path
 	}
