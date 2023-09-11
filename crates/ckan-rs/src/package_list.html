@@ -7,8 +7,17 @@
 		<title>CKAN-RS</title>
 		<script type="module" src="/package_list.js" defer></script>
 	</head>
+
+	<template id="package-card-template">
+		<div class="card package-card">
+			<h2 class="title"></h2>
+			<span class="authors"></span>
+			<span class="version"></span>
+		</div>
+	</template>
+
 	<body>
 		<h1>CKAN-RS</h1>
-		<div id="modlist" style="display: flex; flex-direction: column; gap: 2px;"></div>
+		<div id="package-list"></div>
 	</body>
 </html>

@@ -13,12 +13,10 @@ pub struct GameInstanceInfo {
 
 #[tauri::command]
 pub fn get_instances(config: State<ckan_rs_core::Config>) -> Vec<GameInstanceInfo> {
-	println!("here");
 	let dir = match std::fs::read_dir(config.data_dir().join("instances")) {
 		Ok(dir) => dir,
 		Err(_) => return Vec::<_>::new(),
 	}; 
-	println!("here1 {:?}", dir);
 	dir
 		.filter_map(|f| f.ok())
 		.map(|f| ckan_rs_core::game_instance::GameInstance::load_by_file(f.path()))

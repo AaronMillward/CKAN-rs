@@ -1,29 +1,23 @@
 const { invoke } = window.__TAURI__.tauri;
 
 window.addEventListener("DOMContentLoaded", async () => {
-	let modlist = document.getElementById("modlist");
+	let list = document.getElementById("package-list");
 	let packages = await invoke("get_compatiable_packages");
+	
+	let template = document.getElementById("package-card-template");
+	let item = template.content.querySelector("div");
 
-	for(let m in packages) {
-		let d = document.createElement("div");
-		d.className = "mod-card card"
-		d.onclick = () => {
-			invoke("open_mod_detail_window", { package: packages[m] } );
+	for(let p in packages) {
+		let pack = packages[p];
+		let card = document.importNode(item, true);
+		card.getElementsByClassName("title")[0].innerText = pack.name
+		card.getElementsByClassName("authors")[0].innerText = pack.author.join(", ")
+		card.getElementsByClassName("version")[0].innerText = pack.identifier.version.version
+
+		card.onclick = () => {
+			invoke("open_package_detail_window", { package: pack } );
 		}
 
-		let title = document.createElement("h2");
-		title.innerText = packages[m].name
-		d.appendChild(title);
-
-		let author = document.createElement("span");
-		author.innerText = packages[m].author.join(", ")
-		d.appendChild(author);
-
-		let version = document.createElement("span");
-		version.className = "mod-card-version-number"
-		version.innerText = packages[m].identifier.version.version
-		d.appendChild(version);
-
-		modlist.appendChild(d);
+		list.appendChild(card);
 	}
 });

@@ -13,11 +13,11 @@ pub fn get_compatiable_packages(metadb: State<MetaDB>) -> Vec<Package> {
 }
 
 #[tauri::command]
-pub async fn open_mod_detail_window(handle: tauri::AppHandle, package: Package) {
+pub async fn open_package_detail_window(handle: tauri::AppHandle, package: Package) {
 	let w = tauri::WindowBuilder::new(
 		&handle,
 		"mod_detail",
-		tauri::WindowUrl::App("mod_detail.html".parse().unwrap())
+		tauri::WindowUrl::App("package_detail.html".parse().unwrap())
 	).build().expect("failed to create mod detail window.");
 	/* TODO: Replace this with on load */
 	std::thread::sleep(std::time::Duration::from_millis(500));

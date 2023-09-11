@@ -7,16 +7,24 @@ body {
 	color: whitesmoke;
 }
 
+
 .card {
 	background-color: var(--card-background-color);
 	border-radius: 10px;
+	padding: 4px 1em;
 }
 
-.mod-card > h2 {
+#package-list {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.package-card > h2 {
 	margin: 0;
 }
 
-.mod-card-version-number {
+.package-card > .version {
 	float: right;
 	text-align: right;
 }

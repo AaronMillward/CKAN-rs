@@ -14,7 +14,7 @@ fn main() {
 		.invoke_handler(tauri::generate_handler![
 			instance_list::get_instances,
 			package_list::get_compatiable_packages,
-			package_list::open_mod_detail_window,
+			package_list::open_package_detail_window,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
