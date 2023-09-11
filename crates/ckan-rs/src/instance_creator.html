@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="stylesheet" href="styles.css" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>CKAN-RS</title>
+		<script type="module" src="/instance_creator.js"></script>
+	</head>
+
+	<body>
+		<h1>CKAN-RS</h1>
+		<div class="card instance-creator">
+			<h2>Instance Creator</h2>
+
+			<div class="entry">
+				<label for="name">Instance Name</label>
+				<input id="name" type="text">
+			</div>
+
+			<div class="entry">
+				<label for="path">Game Directory Path</label>
+				<div class="system-file-chooser">
+					<input id="path" type="text">
+					<input id="path-picker" class="system" type="button" value="Select from system">
+				</div>
+			</div>
+
+			<div class="entry">
+				<label for="path">Mod Deployment Directory Path</label>
+				<div class="system-file-chooser">
+					<input id="deployment" type="text">
+					<input id="deployment-picker" class="system" type="button" value="Select from system">
+				</div>
+			</div>
+
+			<div class="entry">
+				<input id="submit" type="button" value="Create">
+				<span id="result"></span>
+			</div>
+
+		</div>
+	</body>
+</html>

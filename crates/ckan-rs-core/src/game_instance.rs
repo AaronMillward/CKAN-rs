@@ -200,6 +200,7 @@ impl GameInstance {
 		Ok(bincode::deserialize_from(file)?)
 	}
 
+	/* TODO: Actually save to JSON not bin */
 	/// Saves the instance to a JSON file.
 	/// 
 	/// # Errors

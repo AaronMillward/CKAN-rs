@@ -1,12 +1,15 @@
 :root {
+	--text-color: whitesmoke;
 	--card-background-color: rgb(36, 36, 36);
+	--input-border-color: rgb(29, 29, 29);
+	--input-background-color: rgb(85, 85, 85);
+	appearance: none;
 }
 
 body {
 	background-color: black;
 	color: whitesmoke;
 }
-
 
 .card {
 	background-color: var(--card-background-color);
@@ -37,4 +40,46 @@ body {
 
 .instance-card > h3 {
 	margin: 0;
+}
+
+.instance-creator {
+	display: block;
+	max-width: 60%;
+	margin: auto;
+}
+
+.instance-creator h2 {
+	text-align: center;
+}
+
+.instance-creator label {
+	width: 100%;
+	display: block;
+	box-sizing: border-box;
+	font-size: large;
+	margin-bottom: 3px;
+	margin-left: 0.5em;
+}
+
+.instance-creator input {
+	width: 100%;
+	box-sizing: border-box;
+	color: var(--text-color);
+	background-color: var(--input-background-color);
+	padding: 10px;
+	border-style: none;
+	border-radius: 10px;
+}
+
+.instance-creator .system {
+	width: auto;
+}
+
+.instance-creator .system-file-chooser {
+	display: flex;
+	gap: 5px;
+}
+
+.instance-creator .entry {
+	margin: 10px 0;
 }

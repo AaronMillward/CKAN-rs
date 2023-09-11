@@ -3,6 +3,7 @@
 
 mod package_list;
 mod instance_list;
+mod instance_creator;
 
 fn main() {
 	let config = ckan_rs_core::Config::load_from_disk().unwrap_or_default();
@@ -13,6 +14,8 @@ fn main() {
 		.manage(metadb)
 		.invoke_handler(tauri::generate_handler![
 			instance_list::get_instances,
+			instance_creator::select_directory,
+			instance_creator::create_instance,
 			package_list::get_compatiable_packages,
 			package_list::open_package_detail_window,
 		])
