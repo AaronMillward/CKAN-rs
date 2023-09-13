@@ -3,35 +3,41 @@ import './styles.css';
 import InstanceSelector from './instance_selector';
 import PackageList from './package_list';
 import InstanceCreator from './instance_creator';
+import { useState } from 'react';
+import React from 'react';
+import NavBar, { NavBarFiller } from './navbar';
 
-enum AppMenu {
+export enum AppScreen {
 	InstanceSelector,
 	InstanceCreator,
 	PackageList,
 }
 
-let state = AppMenu.PackageList;
+export const AppScreenContext = React.createContext<any>(null);
 
-function App() {
+export default function App() {
+	const [appScreen, setAppScreen] = useState<any>(AppScreen.InstanceSelector)
+	
 	let content = <h1>UNINITIALIZED</h1>;
-	switch(state) {
-		case AppMenu.InstanceSelector:
+	switch(appScreen) {
+		case AppScreen.InstanceSelector:
 			content = <InstanceSelector />;
 			break;
-		case AppMenu.InstanceCreator:
+		case AppScreen.InstanceCreator:
 			content = <InstanceCreator />;
 			break;
-		case AppMenu.PackageList:
+		case AppScreen.PackageList:
 			content = <PackageList />;
 			break;
 	}
 
 	return (
 		<div>
-			<h1>CKAN-RS</h1>
-			{content}
+			<AppScreenContext.Provider value={{ appScreen: appScreen, setAppScreen: setAppScreen }}>
+				<NavBar />
+				<NavBarFiller />
+				{content}
+			</AppScreenContext.Provider>
 		</div>
 	)
 }
-
-export default App

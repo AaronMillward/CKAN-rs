@@ -1,12 +1,11 @@
 import './styles.css';
-
-import { useEffect, useState } from 'react';
-
+import { useContext, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api'
-
 import InstanceCard from './instance_card';
+import { AppScreen, AppScreenContext } from './app';
 
 function InstanceSelector() {
+	const { appScreen, setAppScreen } = useContext(AppScreenContext);
 	const [instances, setInstances] = useState(Array<any>);
 
 	useEffect(() => {
@@ -17,16 +16,24 @@ function InstanceSelector() {
 			});
 	}, []);
 
-
 	let cards = instances.map((instance) => {
 		return <InstanceCard instance={instance} />
 	})
 
+	let list = <div className="instance-list">{cards}</div>;
+
+	let no_list = <div> No instances found. </div>;
+
+	let content = cards.length == 0 ? no_list : list;
+
 	return (
 		<div>
 			<h1>Instance Selector</h1>
-			<div id="instance-selector">
-				{cards}
+			<div className='instance-selector'>
+				<div className='instance-content'>
+					{content}
+				</div>
+				<input type="button" value="Create Instance" onClick={() => {setAppScreen(AppScreen.InstanceCreator)}}/>
 			</div>
 		</div>
 	)

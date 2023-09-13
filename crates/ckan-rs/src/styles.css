@@ -3,12 +3,15 @@
 	--card-background-color: rgb(36, 36, 36);
 	--input-border-color: rgb(29, 29, 29);
 	--input-background-color: rgb(85, 85, 85);
+	--input-background-color-hightlight: rgb(126, 126, 126);
+	--nav-bar-height: 80px;
 	appearance: none;
 }
 
 body {
 	background-color: black;
 	color: whitesmoke;
+	margin: 0;
 }
 
 .card {
@@ -33,6 +36,16 @@ body {
 }
 
 .instance-selector {
+	max-width: 40%;
+	height: 80%;
+	margin: auto;
+}
+
+.instance-content {
+	min-height: 50%;
+}
+
+.instance-list {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -82,4 +95,63 @@ body {
 
 .instance-creator .entry {
 	margin: 10px 0;
+}
+
+.navigation {
+	display: flex;
+	width: 100%;
+	height: var(--nav-bar-height);
+	box-sizing: border-box;
+	background-color: blue;
+	top: 0px !important;
+}
+.fixed {
+	position: fixed;
+}
+.filler {
+	visibility: hidden;
+}
+
+.navigation h1 {
+	margin: auto 10px;
+}
+
+.nav-button {
+	color: var(--text-color);
+	height: 100%;
+	background-color: transparent;
+	border-radius: 0;
+	border:0;
+}
+
+.nav-button:hover {
+	animation-name: bar-icon-fade;
+	animation-duration: 1s;
+	animation-fill-mode: forwards;
+}
+
+@keyframes bar-icon-fade {
+	from {background-color: transparent;}
+	to {background-color: rgba(255, 255, 255, 0.212);}
+  }
+
+input[type=button] {
+	width: 100%;
+	box-sizing: border-box;
+	color: var(--text-color);
+	background-color: var(--input-background-color);
+	padding: 10px;
+	border-style: none;
+	border-radius: 10px;
+}
+
+input[type=button]:hover {
+	animation-name: input-hover-fade;
+	animation-fill-mode: forwards;
+	animation-duration: 0.5s;
+}
+
+@keyframes input-hover-fade {
+	from {background-color: var(--input-background-color);}
+	to {background-color: var(--input-background-color-hightlight);}
 }
