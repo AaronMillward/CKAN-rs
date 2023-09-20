@@ -5,11 +5,26 @@ use ckan_rs_core::MetaDB;
 #[tauri::command]
 pub fn get_compatiable_packages(metadb: State<MetaDB>) -> Vec<Package> {
 	use ckan_rs_core::metadb::package::KspVersionReal;
-	metadb.get_packages()
+	let mut packages = metadb.get_packages()
 		.iter()
 		.filter(|p| p.ksp_version.is_version_compatible(&KspVersionReal::try_from("1.12.3").unwrap(), false))
-		.cloned()
-		.collect::<Vec<_>>()
+		.collect::<Vec<_>>();
+	packages.sort();
+	let mut only_latest_versions = Vec::<Package>::new();
+	for i in 0..packages.len() {
+		let p1 = packages[i];
+		// only_latest_versions.push(p1.clone());
+		if let Some(p2) = packages.get(i+1) {
+			if p1.identifier.identifier == p2.identifier.identifier {
+				continue;
+			} else {
+				only_latest_versions.push(p1.clone());
+			}
+		} else {
+			continue;
+		}
+	}
+	only_latest_versions
 }
 
 #[tauri::command]
