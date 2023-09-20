@@ -6,7 +6,7 @@ import { invoke } from '@tauri-apps/api'
 
 import PackageCard from './package_card';
 
-function PackageList() {
+export default function PackageList() {
 	const [packages, setPackages] = useState(Array<any>);
 
 	useEffect(() => {
@@ -30,5 +30,3 @@ function PackageList() {
 		</div>
 	)
 }
-
-export default PackageList

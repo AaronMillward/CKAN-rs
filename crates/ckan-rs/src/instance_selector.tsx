@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api'
 import InstanceCard from './instance_card';
 import { AppScreen, AppScreenContext } from './app';
 
-function InstanceSelector() {
+export default function InstanceSelector() {
 	const { appScreen, setAppScreen } = useContext(AppScreenContext);
 	const [instances, setInstances] = useState(Array<any>);
 
@@ -38,5 +38,3 @@ function InstanceSelector() {
 		</div>
 	)
 }
-
-export default InstanceSelector
