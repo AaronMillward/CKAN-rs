@@ -16,14 +16,36 @@ body {
 
 .card {
 	background-color: var(--card-background-color);
-	border-radius: 10px;
+	/* border-radius: 10px; */
 	padding: 4px 1em;
+}
+
+.card-left {
+	border-top-left-radius: 10px;
+	border-bottom-left-radius: 10px;
+}
+
+.card-right {
+	border-top-right-radius: 10px;
+	border-bottom-right-radius: 10px;
 }
 
 #package-list {
 	display: flex;
 	flex-direction: column;
 	gap: 5px;
+}
+
+.package-card-container {
+	display: flex;
+}
+
+.package-card-container :nth-child(1) {
+	width: 100%;
+}
+
+.package-card-container :nth-child(2) {
+	width: 3em;
 }
 
 .package-card > h2 {
@@ -33,6 +55,14 @@ body {
 .package-card > .version {
 	float: right;
 	text-align: right;
+}
+
+.package-controls-install {
+	background-color: green;
+}
+
+.package-controls-uninstall {
+	background-color: red;
 }
 
 .instance-selector {
