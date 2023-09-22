@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import '../styles.css';
 
-export default function PackageCard({pack, showInstallControls, onInstall, onUninstall, onClickCard}: any) {
+export default function PackageCard({id, pack, showInstallControls, onInstall, onUninstall, onClickCard}: any) {
 	const [selected, setSelected] = useState(false);
 
 	function handle_click_install() {
 		setSelected(!selected);
-		selected ? onUninstall(pack) : onInstall(pack);
+		selected ? onUninstall([id, pack]) : onInstall([id, pack]);
 	}
 
 	function handle_click_card() {

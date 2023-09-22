@@ -9,7 +9,7 @@ export default function PackageInstaller() {
 	function handlePackagesChanged(install: any, uninstall: any) {
 		let n = [...changelist];
 		if(install != null) { n.push(install) }
-		if(uninstall != null) { n = n.filter(p => p.identifier.identifier !== uninstall.identifier.identifier) }
+		if(uninstall != null) { n = n.filter(p => p[1].identifier.identifier !== uninstall[1].identifier.identifier) }
 		setChangelist(n)
 	}
 

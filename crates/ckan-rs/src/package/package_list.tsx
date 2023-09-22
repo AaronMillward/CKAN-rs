@@ -8,7 +8,7 @@ export default function PackageList({OnPackagesChanged}: any) {
 
 	useEffect(() => {
 		invoke("get_compatiable_packages")
-			.then((packages: any) => setPackages(packages))
+			.then((packages: any) => {setPackages(packages)})
 			.catch(error => {
 				console.log(error)
 			});
@@ -21,8 +21,8 @@ export default function PackageList({OnPackagesChanged}: any) {
 	function handle_installed(pack: any) { OnPackagesChanged(pack,null) }
 	function handle_uninstalled(pack: any) { OnPackagesChanged(null,pack) }
 
-	let cards = packages.map((pack) => {
-		return <PackageCard pack={pack} showInstallControls={true} onClickCard={handle_card_clicked} onInstall={handle_installed} onUninstall={handle_uninstalled}/>
+	let cards = packages.map((pack, i) => {
+		return <PackageCard key={i} id={i} pack={pack} showInstallControls={true} onClickCard={handle_card_clicked} onInstall={handle_installed} onUninstall={handle_uninstalled}/>
 	})
 
 	return (
