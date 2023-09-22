@@ -1,9 +1,9 @@
-import './styles.css';
+import '../styles.css';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api'
 import PackageCard from './package_card';
 
-export default function PackageList() {
+export default function PackageList({OnPackagesChanged}: any) {
 	const [packages, setPackages] = useState(Array<any>);
 
 	useEffect(() => {
@@ -18,11 +18,11 @@ export default function PackageList() {
 		invoke("open_package_detail_window", { package: pack } );
 	}
 
-	function handle_installed(pack: any) { console.log(`installing ${pack.identifier.identifier}`); }
-	function handle_uninstalled(pack: any) { console.log(`uninstalling ${pack.identifier.identifier}`); }
+	function handle_installed(pack: any) { OnPackagesChanged(pack,null) }
+	function handle_uninstalled(pack: any) { OnPackagesChanged(null,pack) }
 
 	let cards = packages.map((pack) => {
-		return <PackageCard pack={pack} onClickCard={handle_card_clicked} onInstall={handle_installed} onUninstall={handle_uninstalled}/>
+		return <PackageCard pack={pack} showInstallControls={true} onClickCard={handle_card_clicked} onInstall={handle_installed} onUninstall={handle_uninstalled}/>
 	})
 
 	return (

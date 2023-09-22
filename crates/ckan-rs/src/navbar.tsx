@@ -12,7 +12,7 @@ export default function NavBar() {
 			<h1>CKAN-RS</h1>
 			<nav>
 				<button className='nav-button' onClick={() => {setAppScreen(AppScreen.InstanceSelector)}}>Instances</button>
-				<button className='nav-button' onClick={() => {setAppScreen(AppScreen.PackageList)}}>Packages</button>
+				<button className='nav-button' onClick={() => {setAppScreen(AppScreen.PackageInstaller)}}>Packages</button>
 			</nav>
 		</div>
 	)

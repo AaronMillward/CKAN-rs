@@ -1,16 +1,17 @@
 import './styles.css';
 
 import InstanceSelector from './instance_selector';
-import PackageList from './package_list';
 import InstanceCreator from './instance_creator';
+import PackageInstaller from './package/package_installer';
 import { useState } from 'react';
 import React from 'react';
 import NavBar, { NavBarFiller } from './navbar';
 
+
 export enum AppScreen {
 	InstanceSelector,
 	InstanceCreator,
-	PackageList,
+	PackageInstaller,
 }
 
 export const AppScreenContext = React.createContext<any>(null);
@@ -26,8 +27,8 @@ export default function App() {
 		case AppScreen.InstanceCreator:
 			content = <InstanceCreator />;
 			break;
-		case AppScreen.PackageList:
-			content = <PackageList />;
+		case AppScreen.PackageInstaller:
+			content = <PackageInstaller />;
 			break;
 	}
 
