@@ -1,6 +1,14 @@
 use tauri::State;
 use ckan_rs_core::metadb::package::Package;
+use ckan_rs_core::metadb::package::PackageIdentifier;
+use ckan_rs_core::game_instance::GameInstance;
 use ckan_rs_core::MetaDB;
+
+#[tauri::command]
+pub fn get_installed_packages(config: State<ckan_rs_core::Config>, instance_name: String) -> Result<Vec<PackageIdentifier>, String> {
+	let ins = GameInstance::load_by_name(&config, instance_name);
+	ins.map(|i| i.enabled_packages()).map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 pub fn get_compatiable_packages(metadb: State<MetaDB>) -> Vec<Package> {

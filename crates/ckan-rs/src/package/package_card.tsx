@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import '../styles.css';
 
-export default function PackageCard({id, pack, showInstallControls, onInstall, onUninstall, onClickCard}: any) {
-	const [selected, setSelected] = useState(false);
+export default function PackageCard({id, pack, showInstallControls, isInstalledAlready, onInstall, onUninstall, onClickCard}: any) {
+	const [selected, setSelected] = useState(isInstalledAlready);
 
 	function handle_click_install() {
 		setSelected(!selected);

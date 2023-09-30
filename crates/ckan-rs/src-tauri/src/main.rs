@@ -16,6 +16,7 @@ fn main() {
 			instance_list::get_instances,
 			instance_creator::select_directory,
 			instance_creator::create_instance,
+			package_list::get_installed_packages,
 			package_list::get_compatiable_packages,
 			package_list::open_package_detail_window,
 		])
