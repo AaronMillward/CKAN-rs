@@ -1,7 +1,7 @@
 import './styles.css';
 
-import InstanceSelector from './instance_selector';
-import InstanceCreator from './instance_creator';
+import InstanceSelector from './instance/instance_selector';
+import InstanceCreator from './instance/instance_creator';
 import PackageInstaller from './package/package_installer';
 import { useState } from 'react';
 import React from 'react';

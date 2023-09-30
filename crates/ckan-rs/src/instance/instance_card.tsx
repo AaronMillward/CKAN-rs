@@ -1,4 +1,4 @@
-import './styles.css';
+import '../styles.css';
 
 export default function InstanceCard({instance, onClickCard}: any) {
 	function handle_click_card() {

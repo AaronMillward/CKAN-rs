@@ -1,9 +1,9 @@
-import './styles.css';
+import '../styles.css';
 import { useContext, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api'
 import InstanceCard from './instance_card';
-import { AppScreen, AppScreenContext } from './app';
-import { InstanceContext } from './app';
+import { AppScreen, AppScreenContext } from '../app';
+import { InstanceContext } from '../app';
 
 export default function InstanceSelector() {
 	const { appScreen, setAppScreen } = useContext(AppScreenContext);

@@ -1,9 +1,9 @@
-import './styles.css';
+import '../styles.css';
 
 import { useState } from 'react';
 
 import { invoke } from '@tauri-apps/api'
-import DirectorySelector from './directory_selector';
+import DirectorySelector from '../components/directory_selector';
 
 export default function InstanceCreator() {
 	const [result, setResult] = useState("");
