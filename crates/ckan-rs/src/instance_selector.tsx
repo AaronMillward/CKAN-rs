@@ -3,10 +3,13 @@ import { useContext, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api'
 import InstanceCard from './instance_card';
 import { AppScreen, AppScreenContext } from './app';
+import { InstanceContext } from './app';
 
 export default function InstanceSelector() {
 	const { appScreen, setAppScreen } = useContext(AppScreenContext);
-	const [instances, setInstances] = useState(Array<any>);
+	const { instance, setInstance }   = useContext(InstanceContext);
+	
+	const [ instances, setInstances ] = useState(Array<any>);
 
 	useEffect(() => {
 		invoke("get_instances")
@@ -16,15 +19,26 @@ export default function InstanceSelector() {
 			});
 	}, []);
 
-	let cards = instances.map((instance) => {
-		return <InstanceCard instance={instance} />
-	})
+	let content;
+	if(instances.length == 0){
+		content = <div> No instances found. </div>;
+	} else {
+		function handle_click_card(instance: any) {
+			setInstance(instance)
+		}
 
-	let list = <div className="instance-list">{cards}</div>;
+		let cards = instances.map((instance) => {
+			return <InstanceCard instance={instance} onClickCard={handle_click_card} />
+		});
+		content = <div className="instance-list">{cards}</div>;
+	};
 
-	let no_list = <div> No instances found. </div>;
-
-	let content = cards.length == 0 ? no_list : list;
+	let selected;
+	if(instance == null) {
+		selected = <div>No Instance Selected.</div>;
+	} else {
+		selected = <div>Selected: {instance.name}</div>;
+	}
 
 	return (
 		<div>
@@ -33,6 +47,7 @@ export default function InstanceSelector() {
 				<div className='instance-content'>
 					{content}
 				</div>
+				{selected}
 				<input type="button" value="Create Instance" onClick={() => {setAppScreen(AppScreen.InstanceCreator)}}/>
 			</div>
 		</div>

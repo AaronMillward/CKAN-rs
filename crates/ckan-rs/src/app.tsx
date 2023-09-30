@@ -15,9 +15,11 @@ export enum AppScreen {
 }
 
 export const AppScreenContext = React.createContext<any>(null);
+export const InstanceContext = React.createContext<any>(null);
 
 export default function App() {
 	const [appScreen, setAppScreen] = useState<any>(AppScreen.InstanceSelector)
+	const [instance, setInstance] = useState<any>(null)
 	
 	let content = <h1>UNINITIALIZED</h1>;
 	switch(appScreen) {
@@ -34,11 +36,13 @@ export default function App() {
 
 	return (
 		<div>
+			<InstanceContext.Provider value={{instance: instance, setInstance: setInstance}}>
 			<AppScreenContext.Provider value={{ appScreen: appScreen, setAppScreen: setAppScreen }}>
 				<NavBar />
 				<NavBarFiller />
 				{content}
 			</AppScreenContext.Provider>
+			</InstanceContext.Provider>
 		</div>
 	)
 }
