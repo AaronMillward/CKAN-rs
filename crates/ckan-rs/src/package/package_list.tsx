@@ -18,7 +18,7 @@ export default function PackageList({OnPackagesChanged}: any) {
 	}, []);
 
 	useEffect(() => {
-		invoke("get_installed_packages", {instance_name: instance.name})
+		invoke("get_installed_packages", {instanceName: instance.name})
 			.then((packages: any) => {setInstalledPackages(packages)})
 			.catch(error => {
 				console.log(error)

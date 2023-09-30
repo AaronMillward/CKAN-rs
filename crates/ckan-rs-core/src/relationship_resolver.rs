@@ -32,3 +32,9 @@ pub struct InstallTarget {
 	pub identifier: String,
 	pub required_version: PackageVersionBounds
 }
+
+impl From<crate::metadb::package::PackageIdentifier> for InstallTarget {
+	fn from(value: crate::metadb::package::PackageIdentifier) -> Self {
+		InstallTarget { identifier: value.identifier, required_version: VersionBounds::Explicit(value.version) }
+	}
+}

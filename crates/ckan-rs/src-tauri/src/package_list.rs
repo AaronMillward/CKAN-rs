@@ -5,6 +5,21 @@ use ckan_rs_core::game_instance::GameInstance;
 use ckan_rs_core::MetaDB;
 
 #[tauri::command]
+pub fn change_packages(config: State<ckan_rs_core::Config>, metadb: State<MetaDB>, instance_name: String, add: Vec<PackageIdentifier>, remove: Vec<PackageIdentifier>) -> Result<(), String> {
+	let mut ins = GameInstance::load_by_name(&config, instance_name).map_err(|e| e.to_string())?;
+	use ckan_rs_core::relationship_resolver::InstallTarget;
+	let add = add.into_iter().map(InstallTarget::from);
+	let remove = remove.into_iter().map(InstallTarget::from);
+	let a = ins.alter_package_requirements(&metadb, add, remove, |a,b| {
+		/* TODO: Ask user */
+		for d in b {
+			a.add_decision(d.options.get(0).unwrap());
+		}
+	});
+	a.map(|_| ()).map_err(|_| "wtf is this".to_string())
+}
+
+#[tauri::command]
 pub fn get_installed_packages(config: State<ckan_rs_core::Config>, instance_name: String) -> Result<Vec<PackageIdentifier>, String> {
 	let ins = GameInstance::load_by_name(&config, instance_name);
 	ins.map(|i| i.enabled_packages()).map_err(|e| e.to_string())
